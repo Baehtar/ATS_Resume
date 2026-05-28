@@ -2,7 +2,7 @@
 import streamlit as st
 import json
 from io import BytesIO
-from xhtml2pdf import pisa
+from weasyprint import HTML
 
 import resume_templates
 import ats_analyzer
@@ -205,11 +205,11 @@ if st.session_state.user and not st.session_state.resume_loaded_from_db:
 
 # Helper: Convert HTML to PDF bytes
 def compile_pdf(html_content):
-    result = BytesIO()
-    pdf = pisa.pisaDocument(BytesIO(html_content.encode("utf-8")), result)
-    if not pdf.err:
-        return result.getvalue()
-    return None
+    try:
+        pdf_bytes = HTML(string=html_content).write_pdf()
+        return pdf_bytes
+    except Exception as e:
+        return None
 
 # ─────────────────────────────────────────────────
 # 3. SIDEBAR — BRANDING & GLOBAL CONTROLS
