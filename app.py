@@ -23,6 +23,11 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* Hide Streamlit toolbar */
+    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+
     /* Custom badge styles */
     .kw-must-matched {
         display:inline-block; background:rgba(16,185,129,0.12); color:#10b981;
