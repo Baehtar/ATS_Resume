@@ -1,0 +1,52 @@
+{
+  "data_engineer": {
+    "title": "Data Engineer",
+    "must_have": [
+      "SQL", "Python", "ETL", "Data Pipeline", "Apache Spark",
+      "Apache Kafka", "Airflow", "Data Warehouse", "AWS", "Azure",
+      "GCP", "Snowflake", "Databricks", "Docker", "Kubernetes",
+      "CI/CD", "Data Modeling", "PostgreSQL", "MongoDB", "Redis",
+      "Hadoop", "HDFS", "Hive", "dbt", "Terraform",
+      "Data Lake", "Batch Processing", "Stream Processing",
+      "Schema Design", "Data Governance"
+    ],
+    "good_to_have": [
+      "Scala", "Java", "REST API", "GraphQL", "Redshift",
+      "BigQuery", "Delta Lake", "Parquet", "Avro", "Protobuf",
+      "Jenkins", "GitHub Actions", "Looker", "Tableau",
+      "Data Quality", "Data Lineage", "Orchestration",
+      "Microservices", "Event-Driven Architecture", "NoSQL"
+    ],
+    "action_verbs": [
+      "engineered", "optimized", "automated", "designed", "built",
+      "architected", "migrated", "orchestrated", "streamlined",
+      "deployed", "scaled", "integrated", "implemented", "developed",
+      "maintained", "monitored", "reduced", "improved", "configured"
+    ]
+  },
+  "data_analyst": {
+    "title": "Data Analyst",
+    "must_have": [
+      "SQL", "Python", "Excel", "Tableau", "Power BI",
+      "Data Visualization", "Statistical Analysis", "A/B Testing",
+      "Data Cleaning", "Pandas", "NumPy", "Reporting",
+      "Dashboard", "KPI", "Metrics", "Business Intelligence",
+      "Data-Driven", "Stakeholder Communication", "Hypothesis Testing",
+      "Regression Analysis", "Correlation", "EDA",
+      "Google Analytics", "Looker", "Data Storytelling"
+    ],
+    "good_to_have": [
+      "R", "SAS", "SPSS", "Jupyter", "Matplotlib", "Seaborn",
+      "Plotly", "Scikit-learn", "Machine Learning", "Forecasting",
+      "Time Series", "Cohort Analysis", "Segmentation",
+      "ETL", "AWS", "BigQuery", "Redshift", "dbt",
+      "Product Analytics", "Funnel Analysis"
+    ],
+    "action_verbs": [
+      "analyzed", "identified", "discovered", "visualized", "reported",
+      "quantified", "evaluated", "presented", "recommended", "optimized",
+      "forecasted", "modeled", "segmented", "tracked", "measured",
+      "improved", "collaborated", "communicated", "delivered", "automated"
+    ]
+  }
+}
