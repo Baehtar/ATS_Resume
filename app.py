@@ -356,6 +356,9 @@ with tab_cv:
         with st.expander("👤 Personal Details", expanded=True):
             st.session_state.resume["personal"]["fullName"] = st.text_input(
                 "Full Name", value=st.session_state.resume["personal"].get("fullName", ""), key="cv_name")
+            st.session_state.resume["personal"]["headline"] = st.text_input(
+                "Professional Headline", value=st.session_state.resume["personal"].get("headline", ""), key="cv_headline",
+                placeholder="Data Engineer | Data Pipelines | ETL Processes")
             c1, c2 = st.columns(2)
             with c1:
                 st.session_state.resume["personal"]["email"] = st.text_input(
@@ -575,8 +578,8 @@ with tab_cv:
                     st.markdown(f'<div class="warn-box {cls}"><strong>{icon}</strong> {w["message"]}</div>', unsafe_allow_html=True)
 
         with sub_preview:
-            template_id = st.selectbox("Template Style", ["modern", "classic", "executive"],
-                format_func=lambda x: {"modern":"Modern Tech (Sans-serif)","classic":"Classic Scholar (Serif)","executive":"Executive (Condensed)"}[x],
+            template_id = st.selectbox("Template Style", ["compact", "modern", "classic", "executive"],
+                format_func=lambda x: {"compact":"Compact Professional (Reference CV)","modern":"Modern Tech (Sans-serif)","classic":"Classic Scholar (Serif)","executive":"Executive (Condensed)"}[x],
                 key="tmpl_select")
 
             html = resume_templates.generate_resume_html(st.session_state.resume, template_id)

@@ -1,9 +1,11 @@
 # resume_templates.py - HTML layout templates and print stylesheet configurations
+from html import escape
 
 def get_default_sample():
     return {
         "personal": {
             "fullName": "Alex Mercer",
+            "headline": "Software Engineer | Full Stack Development | Cloud Architecture",
             "email": "alex.mercer@email.com",
             "phone": "(555) 019-2834",
             "location": "San Francisco, CA",
@@ -79,6 +81,7 @@ def get_ideal_template(target_role):
     common = {
         "personal": {
             "fullName": "Your Name",
+            "headline": "Data Analyst | Business Intelligence | Data Visualization",
             "email": "your.email@example.com",
             "phone": "+91 98765 43210",
             "location": "Bengaluru, India",
@@ -152,6 +155,7 @@ def get_ideal_template(target_role):
         })
         return common
 
+    common["personal"]["headline"] = "Data Engineer | Data Pipelines | ETL and Cloud Platforms"
     common.update({
         "summary": "Data Engineer with 3+ years of experience designing scalable ETL and ELT data pipelines, data warehouses, and cloud-based analytics platforms. Proficient in Python, SQL, Apache Spark, Apache Kafka, Airflow, AWS, Snowflake, and dbt. Engineered reliable batch and stream processing systems that reduced pipeline latency by 45% while improving data quality and observability.",
         "experience": [
@@ -207,6 +211,7 @@ def get_empty_schema():
     return {
         "personal": {
             "fullName": "",
+            "headline": "",
             "email": "",
             "phone": "",
             "location": "",
@@ -225,7 +230,132 @@ def get_empty_schema():
         "certifications": []
     }
 
+
+def _safe(value):
+    return escape(str(value or ""))
+
+
+def _compact_resume_html(data):
+    """Render a compact single-column resume inspired by the reference CV."""
+    personal = data.get("personal", {})
+    summary = _safe(data.get("summary"))
+    contact_items = [
+        personal.get("phone"),
+        personal.get("linkedin"),
+        personal.get("email"),
+        personal.get("location"),
+    ]
+    contact_html = " | ".join(_safe(item) for item in contact_items if item)
+
+    experience_items = []
+    for exp in data.get("experience", []):
+        bullets = "".join(f"<li>{_safe(bullet)}</li>" for bullet in exp.get("bullets", []) if bullet.strip())
+        title_parts = [exp.get("role"), exp.get("company"), exp.get("location")]
+        title = ", ".join(_safe(part) for part in title_parts if part)
+        dates = " - ".join(_safe(part) for part in (exp.get("startDate"), exp.get("endDate")) if part)
+        experience_items.append(f"""
+            <div class="entry">
+                <table class="entry-heading"><tr>
+                    <td><strong>{title}</strong></td>
+                    <td class="date">{dates}</td>
+                </tr></table>
+                <ul>{bullets}</ul>
+            </div>
+        """)
+
+    skill_items = "".join(
+        f"<li><strong>{_safe(skill.get('category'))}:</strong> {_safe(skill.get('list'))}</li>"
+        for skill in data.get("skills", [])
+        if skill.get("category", "").strip() and skill.get("list", "").strip()
+    )
+
+    project_items = []
+    for project in data.get("projects", []):
+        tech = f" | {_safe(project.get('tech'))}" if project.get("tech") else ""
+        project_items.append(f"""
+            <div class="entry compact-entry">
+                <strong>{_safe(project.get("name"))}</strong>{tech}
+                <div>{_safe(project.get("description"))}</div>
+            </div>
+        """)
+
+    education_items = []
+    for education in data.get("education", []):
+        education_items.append(f"""
+            <div class="entry compact-entry">
+                <table class="entry-heading"><tr>
+                    <td><strong>{_safe(education.get("degree"))}</strong>, {_safe(education.get("school"))}</td>
+                    <td class="date">{_safe(education.get("date"))}</td>
+                </tr></table>
+                <div>{_safe(education.get("details"))}</div>
+            </div>
+        """)
+
+    certification_items = "".join(
+        f"<li><strong>{_safe(cert.get('name'))}</strong> - {_safe(cert.get('issuer'))} {_safe(cert.get('date'))}</li>"
+        for cert in data.get("certifications", [])
+        if cert.get("name", "").strip()
+    )
+
+    def section(title, content):
+        if not content:
+            return ""
+        return f"""
+            <section>
+                <div class="section-label">{title}:</div>
+                <div class="section-content">{content}</div>
+            </section>
+        """
+
+    return f"""
+    <html>
+    <head>
+        <style>
+            @page {{ size: a4; margin: 11mm 12mm; }}
+            body {{
+                color: #111111; font-family: Arial, Helvetica, sans-serif;
+                font-size: 9.2pt; line-height: 1.24; margin: 0;
+            }}
+            .header {{ margin-bottom: 6pt; }}
+            h1 {{ font-size: 17pt; margin: 0 0 1pt 0; }}
+            .headline {{ font-size: 10pt; font-weight: bold; margin-bottom: 3pt; }}
+            .contact {{ font-size: 9pt; }}
+            section {{ display: table; width: 100%; margin-top: 6pt; }}
+            .section-label {{
+                display: table-cell; width: 25mm; padding-right: 4pt;
+                font-size: 9.4pt; font-weight: bold; vertical-align: top;
+            }}
+            .section-content {{ display: table-cell; vertical-align: top; }}
+            .entry {{ margin-bottom: 5pt; }}
+            .compact-entry {{ margin-bottom: 3pt; }}
+            .entry-heading {{ border-collapse: collapse; width: 100%; }}
+            .entry-heading td {{ font-size: 9.2pt; padding: 0; vertical-align: top; }}
+            .date {{ text-align: right; white-space: nowrap; padding-left: 6pt !important; }}
+            ul {{ margin: 2pt 0 0 0; padding-left: 13pt; }}
+            li {{ margin-bottom: 1.5pt; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>{_safe(personal.get("fullName") or "Your Name")}</h1>
+            <div class="headline">{_safe(personal.get("headline"))}</div>
+            <div class="contact">{contact_html}</div>
+        </div>
+        {section("SUMMARY", summary)}
+        {section("WORK EXPERIENCE", "".join(experience_items))}
+        {section("SKILLS", f"<ul>{skill_items}</ul>" if skill_items else "")}
+        {section("PROJECTS", "".join(project_items))}
+        {section("EDUCATION", "".join(education_items))}
+        {section("CERTIFICATIONS", f"<ul>{certification_items}</ul>" if certification_items else "")}
+    </body>
+    </html>
+    """
+
+
 def generate_resume_html(data, template_id, is_print=False):
+    if template_id == "compact":
+        return _compact_resume_html(data)
+
     personal = data.get("personal", {})
     summary = data.get("summary", "")
     experience = data.get("experience", [])
