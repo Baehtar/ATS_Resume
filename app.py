@@ -215,6 +215,25 @@ def show_pdf_preview(pdf_bytes, width=620):
     )
 
 
+def show_resume_preview(html_content, width=620):
+    height = round(width * 1.414)
+    encoded_html = base64.b64encode(html_content.encode("utf-8")).decode("ascii")
+    st.components.v1.html(
+        f"""
+        <div style="display:flex; justify-content:center; background:#eef2f7; padding:16px;">
+            <iframe
+                src="data:text/html;base64,{encoded_html}"
+                width="{width}"
+                height="{height}"
+                style="max-width:100%; border:0; background:white; box-shadow:0 2px 10px rgba(0,0,0,0.15);"
+            ></iframe>
+        </div>
+        """,
+        height=height + 40,
+        scrolling=True,
+    )
+
+
 # ─────────────────────────────────────────────────
 # ADMIN DASHBOARD
 # ─────────────────────────────────────────────────
@@ -265,9 +284,7 @@ def show_admin_dashboard():
                 )
             else:
                 st.warning("PDF download unavailable.")
-            st.markdown("<div style='border:1px solid #ddd; border-radius:8px; overflow:hidden;'>", unsafe_allow_html=True)
-            st.components.v1.html(html, height=800, scrolling=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            show_resume_preview(html)
         else:
             st.info("This student hasn't saved a resume yet.")
 
@@ -674,9 +691,7 @@ with tab_cv:
             else:
                 st.error("Error generating PDF.")
 
-            st.markdown("<div style='border:1px solid #ddd; border-radius:8px; overflow:hidden;'>", unsafe_allow_html=True)
-            st.components.v1.html(html, height=800, scrolling=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+            show_resume_preview(html)
 
 
 # ═══════════════════════════════════════════════════
