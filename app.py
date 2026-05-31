@@ -193,7 +193,8 @@ def compile_pdf(html_content):
         return None
 
 
-def show_pdf_preview(pdf_bytes, height=1000):
+def show_pdf_preview(pdf_bytes, width=620):
+    height = round(width * 1.414)
     encoded_pdf = base64.b64encode(pdf_bytes).decode("ascii")
     st.components.v1.html(
         f"""
@@ -201,7 +202,7 @@ def show_pdf_preview(pdf_bytes, height=1000):
             <object
                 data="data:application/pdf;base64,{encoded_pdf}"
                 type="application/pdf"
-                width="794"
+                width="{width}"
                 height="{height}"
                 style="max-width:100%; background:white; box-shadow:0 2px 10px rgba(0,0,0,0.15);"
             >
