@@ -101,6 +101,7 @@ BATCH_OPTIONS = [
     "Data Engineering Bootcamp - Mar 2026",
     "Generative AI Specialist - Feb 2026"
 ]
+COURSE_OPTIONS = ["Select your course...", "Data Engineer", "Data Analyst"]
 
 # Check if user is logged in
 if st.session_state.user is None:
@@ -124,7 +125,8 @@ if st.session_state.user is None:
                     "email": "student@demo.com",
                     "user_metadata": {
                         "name": "Demo Student",
-                        "batch": "Data Science Fellowship - Jan 2026"
+                        "batch": "Data Science Fellowship - Jan 2026",
+                        "course": "Data Engineer"
                     }
                 }
                 st.toast("Entered Demo Mode!", icon="🔓")
@@ -167,18 +169,19 @@ if st.session_state.user is None:
             reg_name = st.text_input("Full Name", placeholder="Alex Mercer", key="reg_name")
             reg_email = st.text_input("Email Address", placeholder="student@email.com", key="reg_email")
             reg_batch = st.selectbox("Batch Name/Number", options=BATCH_OPTIONS, key="reg_batch")
+            reg_course = st.selectbox("Course Name", options=COURSE_OPTIONS, key="reg_course")
             reg_pass = st.text_input("Password (min 6 characters)", type="password", placeholder="••••••••", key="reg_pass")
             reg_pass_conf = st.text_input("Confirm Password", type="password", placeholder="••••••••", key="reg_pass_conf")
             
             if st.button("Create Account", type="primary", use_container_width=True):
-                if not reg_name or not reg_email or reg_batch == BATCH_OPTIONS[0] or not reg_pass or not reg_pass_conf:
-                    st.error("Please fill in all fields and select a batch.")
+                if not reg_name or not reg_email or reg_batch == BATCH_OPTIONS[0] or reg_course == COURSE_OPTIONS[0] or not reg_pass or not reg_pass_conf:
+                    st.error("Please fill in all fields and select a batch and course.")
                 elif reg_pass != reg_pass_conf:
                     st.error("Passwords do not match.")
                 elif len(reg_pass) < 6:
                     st.error("Password must be at least 6 characters.")
                 else:
-                    res = db_client.sign_up_student(reg_email, reg_pass, reg_name, reg_batch)
+                    res = db_client.sign_up_student(reg_email, reg_pass, reg_name, reg_batch, reg_course)
                     if res["error"]:
                         st.error(res["error"])
                     else:
@@ -251,15 +254,21 @@ def show_admin_dashboard():
         return
 
     st.markdown(f"### 👥 Registered Students ({len(students)})")
+    course_filter = st.selectbox("Filter by Course", ["All", "Data Engineer", "Data Analyst"], key="admin_course_filter")
+    if course_filter != "All":
+        students = [student for student in students if student.get("course") == course_filter]
+    st.caption(f"Showing {len(students)} students")
     st.markdown("---")
 
     for student in students:
-        col1, col2, col3 = st.columns([2, 2, 1])
+        col1, col2, col3, col4 = st.columns([2, 2, 1.5, 1])
         with col1:
             st.markdown(f"**{student.get('name', 'N/A')}**")
         with col2:
             st.markdown(f"{student.get('batch', 'N/A')}")
         with col3:
+            st.markdown(f"{student.get('course', 'N/A')}")
+        with col4:
             if st.button("View Resume", key=f"view_{student['id']}"):
                 st.session_state["viewing_student"] = student["id"]
                 st.session_state["viewing_name"] = student.get("name", "Student")
@@ -421,6 +430,7 @@ with st.sidebar:
     st.markdown(f"**Name:** {metadata.get('name', 'Student')}")
     st.markdown(f"**Email:** {user_email}")
     st.markdown(f"**Batch:** {metadata.get('batch', 'N/A')}")
+    st.markdown(f"**Course:** {metadata.get('course', 'N/A')}")
     
     st.markdown("---")
     if st.button("🚪 Sign Out", use_container_width=True):

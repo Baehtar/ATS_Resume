@@ -46,10 +46,10 @@ def is_configured():
     """Check if Supabase is properly configured in secrets or env vars."""
     return get_supabase_client() is not None
 
-def sign_up_student(email, password, name, batch):
+def sign_up_student(email, password, name, batch, course):
     """
     Register a new student with email and password,
-    saving Name and Batch Number in user metadata.
+    saving name, batch number, and course name in user metadata.
     """
     client = get_supabase_client()
     if not client:
@@ -63,7 +63,8 @@ def sign_up_student(email, password, name, batch):
             "options": {
                 "data": {
                     "name": name,
-                    "batch": batch
+                    "batch": batch,
+                    "course": course
                 }
             }
         })
