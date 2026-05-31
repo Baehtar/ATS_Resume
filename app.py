@@ -1,5 +1,6 @@
 # app.py - Edutech Data Science Career Portal (Streamlit Frontend)
 import streamlit as st
+import base64
 import json
 from html import escape
 from io import BytesIO
@@ -184,6 +185,35 @@ if st.session_state.user is None:
                         st.success("Registration successful! Please sign in using the 'Sign In' tab.")
                         st.balloons()
     st.stop()
+# Helper: Convert HTML to PDF bytes
+def compile_pdf(html_content):
+    try:
+        return HTML(string=html_content).write_pdf()
+    except Exception:
+        return None
+
+
+def show_pdf_preview(pdf_bytes, height=1000):
+    encoded_pdf = base64.b64encode(pdf_bytes).decode("ascii")
+    st.components.v1.html(
+        f"""
+        <div style="display:flex; justify-content:center; background:#eef2f7; padding:16px;">
+            <object
+                data="data:application/pdf;base64,{encoded_pdf}"
+                type="application/pdf"
+                width="794"
+                height="{height}"
+                style="max-width:100%; background:white; box-shadow:0 2px 10px rgba(0,0,0,0.15);"
+            >
+                <p>PDF preview is unavailable in this browser. Use the download button below.</p>
+            </object>
+        </div>
+        """,
+        height=height + 40,
+        scrolling=True,
+    )
+
+
 # ─────────────────────────────────────────────────
 # ADMIN DASHBOARD
 # ─────────────────────────────────────────────────
@@ -220,8 +250,20 @@ def show_admin_dashboard():
         st.markdown(f"### 📄 Resume — {st.session_state['viewing_name']}")
         resume = db_client.load_resume(st.session_state["viewing_student"])
         if resume:
-            html = resume_templates.generate_resume_html(resume, "modern")
-            st.components.v1.html(html, height=800, scrolling=True)
+            html = resume_templates.generate_resume_html(resume, "compact")
+            pdf_data = compile_pdf(html)
+            if pdf_data:
+                safe_name = st.session_state["viewing_name"].lower().replace(" ", "_")
+                show_pdf_preview(pdf_data)
+                st.download_button(
+                    "🖨 Download Student Resume PDF",
+                    data=pdf_data,
+                    file_name=f"{safe_name}_resume.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            else:
+                st.error("Could not generate this student's PDF preview.")
         else:
             st.info("This student hasn't saved a resume yet.")
 
@@ -261,15 +303,6 @@ role = db_client.get_user_role(user_id)
 if role == "admin":
     show_admin_dashboard()
     st.stop()
-
-# Helper: Convert HTML to PDF bytes
-def compile_pdf(html_content):
-    try:
-        pdf_bytes = HTML(string=html_content).write_pdf()
-        return pdf_bytes
-    except Exception as e:
-        return None
-
 
 # ─────────────────────────────────────────────────
 # 3. SIDEBAR — BRANDING & GLOBAL CONTROLS
