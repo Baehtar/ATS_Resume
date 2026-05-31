@@ -129,7 +129,9 @@ def save_resume(user_id, resume_data):
     """
     client = get_supabase_client()
     if not client:
-        return False
+        return {"ok": False, "error": "Supabase client is not configured."}
+    if not user_id:
+        return {"ok": False, "error": "No authenticated user ID was found. Please sign out and sign in again."}
     try:
         # Perform upsert in Supabase
         data = {
@@ -137,11 +139,11 @@ def save_resume(user_id, resume_data):
             "resume_data": resume_data
         }
         client.table("resumes").upsert(data).execute()
-        return True
+        return {"ok": True, "error": None}
     except Exception as e:
-        # We fail silently or log to debug
-        print(f"Error saving resume: {e}")
-        return False
+        error_message = str(e)
+        print(f"Error saving resume: {error_message}")
+        return {"ok": False, "error": error_message}
 
 def load_resume(user_id):
     """

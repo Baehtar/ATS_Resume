@@ -385,10 +385,11 @@ with st.sidebar:
     else:
         if st.button("💾 Save Resume to Cloud", type="primary", use_container_width=True):
             with st.spinner("Saving to Supabase..."):
-                if db_client.save_resume(user_id, st.session_state.resume):
+                save_result = db_client.save_resume(user_id, st.session_state.resume)
+                if save_result["ok"]:
                     st.success("Resume saved successfully!")
                 else:
-                    st.error("Failed to save resume. Make sure your 'resumes' table is created in Supabase.")
+                    st.error(f"Failed to save resume: {save_result['error']}")
 
     # Student Profile section
     st.markdown("---")
