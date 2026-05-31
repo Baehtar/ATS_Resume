@@ -12,6 +12,8 @@ from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import portal_db_client as db_client
 
+RESUME_EXPORT_TEMPLATE = "compact"
+
 
 # ─────────────────────────────────────────────────
 # 1. PAGE CONFIG & GLOBAL STYLING
@@ -250,7 +252,7 @@ def show_admin_dashboard():
         st.markdown(f"### 📄 Resume — {st.session_state['viewing_name']}")
         resume = db_client.load_resume(st.session_state["viewing_student"])
         if resume:
-            html = resume_templates.generate_resume_html(resume, "modern")
+            html = resume_templates.generate_resume_html(resume, RESUME_EXPORT_TEMPLATE)
             pdf_data = compile_pdf(html)
             if pdf_data:
                 safe_name = st.session_state["viewing_name"].lower().replace(" ", "_")
@@ -660,7 +662,8 @@ with tab_cv:
                 key="tmpl_select")
 
             html = resume_templates.generate_resume_html(st.session_state.resume, template_id)
-            pdf_data = compile_pdf(html)
+            export_html = resume_templates.generate_resume_html(st.session_state.resume, RESUME_EXPORT_TEMPLATE)
+            pdf_data = compile_pdf(export_html)
 
             if pdf_data:
                 safe_name = (st.session_state.resume["personal"].get("fullName", "resume") or "resume").lower().replace(" ","_")
