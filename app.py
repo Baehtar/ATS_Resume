@@ -184,6 +184,53 @@ if st.session_state.user is None:
                         st.success("Registration successful! Please sign in using the 'Sign In' tab.")
                         st.balloons()
     st.stop()
+# ─────────────────────────────────────────────────
+# ADMIN DASHBOARD
+# ─────────────────────────────────────────────────
+def show_admin_dashboard():
+    st.markdown("<h2 style='color:#3b82f6;'>🛡️ Admin Dashboard</h2>", unsafe_allow_html=True)
+    
+    client = db_client.get_supabase_client()
+    
+    # Fetch all profiles
+    try:
+        profiles = client.table("profiles").select("*").execute()
+        students = [p for p in profiles.data if p.get("role") == "student"]
+    except Exception as e:
+        st.error(f"Could not fetch students: {e}")
+        return
+
+    st.markdown(f"### 👥 Registered Students ({len(students)})")
+    st.markdown("---")
+
+    for student in students:
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            st.markdown(f"**{student.get('name', 'N/A')}**")
+        with col2:
+            st.markdown(f"{student.get('batch', 'N/A')}")
+        with col3:
+            if st.button("View Resume", key=f"view_{student['id']}"):
+                st.session_state["viewing_student"] = student["id"]
+                st.session_state["viewing_name"] = student.get("name", "Student")
+
+    # Show selected student's resume
+    if "viewing_student" in st.session_state:
+        st.markdown("---")
+        st.markdown(f"### 📄 Resume — {st.session_state['viewing_name']}")
+        resume = db_client.load_resume(st.session_state["viewing_student"])
+        if resume:
+            html = resume_templates.generate_resume_html(resume, "modern")
+            st.components.v1.html(html, height=800, scrolling=True)
+        else:
+            st.info("This student hasn't saved a resume yet.")
+
+    st.markdown("---")
+    if st.button("🚪 Sign Out", use_container_width=True):
+        db_client.sign_out_student()
+        st.session_state.user = None
+        st.session_state.resume_loaded_from_db = False
+        st.rerun()
 # Greeting display
 if st.session_state.user:
     # Support both dict and Supabase User object
@@ -208,7 +255,13 @@ if st.session_state.user and not st.session_state.resume_loaded_from_db:
             st.toast("CV loaded from Supabase!", icon="☁️")
     st.session_state.resume_loaded_from_db = True
 
-
+# Route admin vs student
+user_id = st.session_state.user.get("id") if isinstance(st.session_state.user, dict) else getattr(st.session_state.user, "id", None)
+role = db_client.get_user_role(user_id)
+if role == "admin":
+    show_admin_dashboard()
+    st.stop()
+    
 # Helper: Convert HTML to PDF bytes
 def compile_pdf(html_content):
     try:

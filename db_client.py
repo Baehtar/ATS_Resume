@@ -160,3 +160,16 @@ def load_resume(user_id):
     except Exception as e:
         print(f"Error loading resume: {e}")
         return None
+    
+def get_user_role(user_id):
+    client = get_supabase_client()
+    if not client:
+        return "student"
+    try:
+        response = client.table("profiles").select("role").eq("id", user_id).execute()
+        rows = getattr(response, "data", [])
+        if rows:
+            return rows[0].get("role", "student")
+        return "student"
+    except Exception:
+        return "student"
