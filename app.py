@@ -12,7 +12,7 @@ from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import portal_db_client as db_client
 
-RESUME_EXPORT_TEMPLATE = "compact"
+RESUME_EXPORT_TEMPLATE = "modern"
 
 
 # ─────────────────────────────────────────────────
