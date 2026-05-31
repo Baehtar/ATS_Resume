@@ -9,7 +9,7 @@ import resume_templates
 import ats_analyzer
 from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
-import db_client
+import portal_db_client as db_client
 
 
 # ─────────────────────────────────────────────────
