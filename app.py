@@ -7,7 +7,7 @@ from weasyprint import HTML
 
 import resume_templates
 import ats_analyzer
-import job_scraper
+#import job_scraper
 from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import db_client
