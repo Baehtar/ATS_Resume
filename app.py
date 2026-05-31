@@ -7,7 +7,6 @@ from weasyprint import HTML
 
 import resume_templates
 import ats_analyzer
-#import job_scraper
 from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import db_client
@@ -218,10 +217,6 @@ def compile_pdf(html_content):
     except Exception as e:
         return None
 
-
-@st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
-def load_live_jobs():
-    return job_scraper.fetch_remotive_jobs()
 
 # ─────────────────────────────────────────────────
 # 3. SIDEBAR — BRANDING & GLOBAL CONTROLS
@@ -603,17 +598,8 @@ with tab_cv:
 # ═══════════════════════════════════════════════════
 with tab_jobs:
     st.header("🔍 Latest Data Science Job Openings")
-    st.caption("Remote openings for Data Engineers and Data Analysts. Live listings are provided by Remotive.")
-
-    try:
-        with st.spinner("Checking for new job openings..."):
-            job_listings = load_live_jobs()
-        if not job_listings:
-            raise job_scraper.JobScraperError("The live feed returned no matching openings.")
-        st.success(f"Loaded {len(job_listings)} live openings from Remotive. Results refresh automatically every 6 hours.")
-    except job_scraper.JobScraperError:
-        job_listings = MOCK_JOB_LISTINGS
-        st.warning("The live Remotive feed is temporarily unavailable. Showing sample listings instead.")
+    st.caption("Curated openings for Data Engineers and Data Analysts")
+    job_listings = MOCK_JOB_LISTINGS
 
     # Filters
     fc1, fc2, fc3 = st.columns(3)
