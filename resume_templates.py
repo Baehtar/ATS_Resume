@@ -73,6 +73,136 @@ def get_default_sample():
         ]
     }
 
+
+def get_ideal_template(target_role):
+    """Return a complete ATS-friendly example for the selected target role."""
+    common = {
+        "personal": {
+            "fullName": "Your Name",
+            "email": "your.email@example.com",
+            "phone": "+91 98765 43210",
+            "location": "Bengaluru, India",
+            "linkedin": "linkedin.com/in/yourname",
+            "github": "github.com/yourname",
+            "website": "yourname.dev"
+        },
+        "education": [
+            {
+                "school": "Your University",
+                "degree": "Bachelor of Technology in Computer Science",
+                "location": "Bengaluru, India",
+                "date": "2018-08 to 2022-05",
+                "details": "GPA: 8.7/10. Relevant coursework: Databases, Statistics, Data Structures, Cloud Computing."
+            }
+        ],
+        "certifications": [
+            {"name": "AWS Certified Cloud Practitioner", "issuer": "Amazon Web Services", "date": "2024-03"},
+            {"name": "SQL for Data Science", "issuer": "Coursera", "date": "2023-11"}
+        ]
+    }
+
+    if target_role == "data_analyst":
+        common.update({
+            "summary": "Data Analyst with 3+ years of experience translating complex datasets into actionable business insights. Proficient in SQL, Python, Excel, Tableau, and Power BI, with hands-on expertise in data cleaning, statistical analysis, A/B testing, KPI reporting, and stakeholder communication. Automated reporting workflows and built dashboards that improved decision-making speed by 35%.",
+            "experience": [
+                {
+                    "company": "Example Analytics Pvt. Ltd.",
+                    "role": "Data Analyst",
+                    "location": "Bengaluru, India",
+                    "startDate": "2023-01",
+                    "endDate": "Present",
+                    "bullets": [
+                        "Analyzed customer behavior using SQL, Python, Pandas, and NumPy, identifying retention opportunities that increased repeat purchases by 14%.",
+                        "Built Tableau and Power BI dashboards for 20+ KPIs, reducing weekly reporting time by 65% and improving stakeholder visibility.",
+                        "Evaluated A/B tests with hypothesis testing and regression analysis, enabling product teams to improve onboarding conversion by 11%.",
+                        "Automated Excel and Python reporting workflows, saving 18 analyst hours per month and improving data accuracy."
+                    ]
+                },
+                {
+                    "company": "Example Retail Technologies",
+                    "role": "Junior Data Analyst",
+                    "location": "Pune, India",
+                    "startDate": "2022-06",
+                    "endDate": "2022-12",
+                    "bullets": [
+                        "Cleaned and validated 500K+ transaction records for exploratory data analysis and monthly business intelligence reporting.",
+                        "Presented funnel analysis, cohort analysis, and customer segmentation findings to marketing stakeholders, supporting a 9% increase in campaign ROI."
+                    ]
+                }
+            ],
+            "projects": [
+                {
+                    "name": "E-commerce Sales Intelligence Dashboard",
+                    "tech": "SQL, Python, Pandas, Tableau",
+                    "link": "github.com/yourname/sales-dashboard",
+                    "description": "Built an interactive dashboard for revenue, customer segmentation, cohort analysis, and KPI tracking. Cleaned 100K+ records and delivered data storytelling insights for product and marketing teams."
+                },
+                {
+                    "name": "Customer Churn Analysis",
+                    "tech": "Python, NumPy, Seaborn, Scikit-learn",
+                    "link": "github.com/yourname/churn-analysis",
+                    "description": "Performed EDA, correlation analysis, and regression modeling to identify churn drivers and recommend targeted retention strategies."
+                }
+            ],
+            "skills": [
+                {"category": "Analytics", "list": "SQL, Python, Excel, Pandas, NumPy, Statistical Analysis, A/B Testing, Hypothesis Testing, Regression Analysis, EDA"},
+                {"category": "Visualization & BI", "list": "Tableau, Power BI, Looker, Data Visualization, Dashboard Design, KPI Reporting, Data Storytelling"},
+                {"category": "Business Analysis", "list": "Business Intelligence, Product Analytics, Funnel Analysis, Cohort Analysis, Segmentation, Stakeholder Communication, Google Analytics"}
+            ]
+        })
+        return common
+
+    common.update({
+        "summary": "Data Engineer with 3+ years of experience designing scalable ETL and ELT data pipelines, data warehouses, and cloud-based analytics platforms. Proficient in Python, SQL, Apache Spark, Apache Kafka, Airflow, AWS, Snowflake, and dbt. Engineered reliable batch and stream processing systems that reduced pipeline latency by 45% while improving data quality and observability.",
+        "experience": [
+            {
+                "company": "Example Data Platforms Pvt. Ltd.",
+                "role": "Data Engineer",
+                "location": "Bengaluru, India",
+                "startDate": "2023-01",
+                "endDate": "Present",
+                "bullets": [
+                    "Engineered ETL and ELT data pipelines using Python, SQL, Apache Spark, and Airflow to process 15M+ records daily with 99.9% reliability.",
+                    "Designed a Snowflake data warehouse and dbt transformation models, reducing analytics query time by 42% and improving schema consistency.",
+                    "Built Apache Kafka stream processing workflows on AWS, cutting data availability latency from 60 minutes to under 10 minutes.",
+                    "Implemented automated data quality checks, monitoring, and CI/CD with Docker and GitHub Actions, reducing production incidents by 30%."
+                ]
+            },
+            {
+                "company": "Example Cloud Solutions",
+                "role": "Junior Data Engineer",
+                "location": "Hyderabad, India",
+                "startDate": "2022-06",
+                "endDate": "2022-12",
+                "bullets": [
+                    "Developed Python and SQL ingestion jobs for PostgreSQL, REST API, and S3 data sources, automating daily batch processing workflows.",
+                    "Optimized data models and Spark jobs for a cloud data lake, lowering processing costs by 18% while maintaining data governance standards."
+                ]
+            }
+        ],
+        "projects": [
+            {
+                "name": "Real-Time Analytics Pipeline",
+                "tech": "Python, Kafka, Spark, Airflow, AWS, Docker",
+                "link": "github.com/yourname/realtime-data-pipeline",
+                "description": "Architected an event-driven data pipeline that ingests, validates, and transforms streaming events into an analytics-ready data lake with monitoring and data quality checks."
+            },
+            {
+                "name": "Cloud Data Warehouse",
+                "tech": "SQL, Snowflake, dbt, PostgreSQL, Terraform",
+                "link": "github.com/yourname/cloud-data-warehouse",
+                "description": "Designed dimensional data models and reusable dbt transformations for a Snowflake warehouse. Added CI/CD validation, lineage documentation, and automated tests."
+            }
+        ],
+        "skills": [
+            {"category": "Data Engineering", "list": "Python, SQL, ETL, ELT, Data Pipeline, Data Modeling, Schema Design, Batch Processing, Stream Processing, Data Quality"},
+            {"category": "Platforms & Tools", "list": "Apache Spark, Apache Kafka, Airflow, Snowflake, dbt, PostgreSQL, MongoDB, Redis, Docker, Kubernetes, Terraform"},
+            {"category": "Cloud & DevOps", "list": "AWS, Azure, GCP, Data Warehouse, Data Lake, Databricks, CI/CD, GitHub Actions, Data Governance, Data Lineage"}
+        ]
+    })
+    return common
+
+
 def get_empty_schema():
     return {
         "personal": {

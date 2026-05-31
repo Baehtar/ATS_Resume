@@ -1,11 +1,13 @@
 # app.py - Edutech Data Science Career Portal (Streamlit Frontend)
 import streamlit as st
 import json
+from html import escape
 from io import BytesIO
 from weasyprint import HTML
 
 import resume_templates
 import ats_analyzer
+import job_scraper
 from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import db_client
@@ -216,6 +218,11 @@ def compile_pdf(html_content):
     except Exception as e:
         return None
 
+
+@st.cache_data(ttl=6 * 60 * 60, show_spinner=False)
+def load_live_jobs():
+    return job_scraper.fetch_remotive_jobs()
+
 # ─────────────────────────────────────────────────
 # 3. SIDEBAR — BRANDING & GLOBAL CONTROLS
 # ─────────────────────────────────────────────────
@@ -238,17 +245,34 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📂 Resume Data")
 
+    def reset_resume_editor_widgets():
+        editor_prefixes = (
+            "cv_", "ec_", "el_", "er_", "es_", "ee_", "eb_", "edsc_", "eddg_",
+            "edlo_", "eddt_", "edde_", "pn_", "pt_", "pl_", "pd_", "sc_", "sl_",
+            "cn_", "ci_", "cd_",
+        )
+        for key in list(st.session_state):
+            if key.startswith(editor_prefixes):
+                del st.session_state[key]
+
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Load Sample", use_container_width=True):
+            reset_resume_editor_widgets()
             st.session_state.resume = resume_templates.get_default_sample()
             st.toast("Sample resume loaded!", icon="📂")
             st.rerun()
     with col2:
         if st.button("Clear All", use_container_width=True, type="primary"):
+            reset_resume_editor_widgets()
             st.session_state.resume = resume_templates.get_empty_schema()
             st.toast("Resume cleared!", icon="🗑")
             st.rerun()
+    if st.button("✨ Create Ideal Resume Template", use_container_width=True):
+        reset_resume_editor_widgets()
+        st.session_state.resume = resume_templates.get_ideal_template(st.session_state.target_role)
+        st.toast("Ideal resume template created!", icon="✨")
+        st.rerun()
 
     # JSON backup
     st.markdown("---")
@@ -572,25 +596,38 @@ with tab_cv:
 
 
 # ═══════════════════════════════════════════════════
-# TAB 2: JOB OPENINGS — Mock Scraper Board
+# TAB 2: JOB OPENINGS — Live Job Board
 # ═══════════════════════════════════════════════════
 with tab_jobs:
     st.header("🔍 Latest Data Science Job Openings")
-    st.caption("Curated openings from LinkedIn, Indeed, and Naukri — filtered for Data Engineers & Data Analysts")
+    st.caption("Remote openings for Data Engineers and Data Analysts. Live listings are provided by Remotive.")
+
+    try:
+        with st.spinner("Checking for new job openings..."):
+            job_listings = load_live_jobs()
+        if not job_listings:
+            raise job_scraper.JobScraperError("The live feed returned no matching openings.")
+        st.success(f"Loaded {len(job_listings)} live openings from Remotive. Results refresh automatically every 6 hours.")
+    except job_scraper.JobScraperError:
+        job_listings = MOCK_JOB_LISTINGS
+        st.warning("The live Remotive feed is temporarily unavailable. Showing sample listings instead.")
 
     # Filters
     fc1, fc2, fc3 = st.columns(3)
     with fc1:
         filter_role = st.selectbox("Filter by Role", ["All", "Data Engineer", "Data Analyst"], key="job_role_filter")
     with fc2:
-        filter_exp = st.selectbox("Experience Level", ["All", "0-2 years", "1-3 years", "2-4 years", "3-5 years", "5-8 years"], key="job_exp_filter")
+        experience_order = ["0-2 years", "1-3 years", "2-4 years", "3-5 years", "3+ years", "5-8 years", "5+ years", "Not specified"]
+        experience_options = [level for level in experience_order if any(j["experience"] == level for j in job_listings)]
+        filter_exp = st.selectbox("Experience Level", ["All", *experience_options], key="job_exp_filter")
     with fc3:
-        filter_source = st.selectbox("Source", ["All", "LinkedIn", "Indeed", "Naukri"], key="job_src_filter")
+        source_options = sorted({j["source"] for j in job_listings})
+        filter_source = st.selectbox("Source", ["All", *source_options], key="job_src_filter")
 
     st.markdown("---")
 
     # Filter jobs
-    filtered = MOCK_JOB_LISTINGS
+    filtered = job_listings
     if filter_role != "All":
         role_key = "data_engineer" if filter_role == "Data Engineer" else "data_analyst"
         filtered = [j for j in filtered if j["role_type"] == role_key]
@@ -605,21 +642,28 @@ with tab_jobs:
         st.markdown(f"**Showing {len(filtered)} openings**")
 
     for job in filtered:
+        safe_title = escape(job["title"])
+        safe_company = escape(job["company"])
+        safe_location = escape(job["location"])
+        safe_salary = escape(job["salary_range"])
+        safe_posted = escape(job["posted"])
+        safe_source = escape(job["source"])
+        safe_tags = "".join([f'<span class="job-tag">{escape(tag)}</span>' for tag in job["tags"]])
         with st.container():
             st.markdown(f"""
             <div class="job-card">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div>
-                        <h3 style="margin:0 0 4px 0;">{job['title']}</h3>
-                        <p style="margin:0; color:gray;">🏢 {job['company']} &nbsp; | &nbsp; 📍 {job['location']} &nbsp; | &nbsp; 💰 {job['salary_range']}</p>
+                        <h3 style="margin:0 0 4px 0;">{safe_title}</h3>
+                        <p style="margin:0; color:gray;">🏢 {safe_company} &nbsp; | &nbsp; 📍 {safe_location} &nbsp; | &nbsp; 💰 {safe_salary}</p>
                     </div>
                     <div style="text-align:right;">
-                        <small style="color:gray;">📅 {job['posted']}</small><br>
-                        <small style="color:gray;">via {job['source']}</small>
+                        <small style="color:gray;">📅 {safe_posted}</small><br>
+                        <small style="color:gray;">via {safe_source}</small>
                     </div>
                 </div>
                 <div style="margin-top:8px;">
-                    {"".join([f'<span class="job-tag">{t}</span>' for t in job['tags']])}
+                    {safe_tags}
                 </div>
             </div>
             """, unsafe_allow_html=True)
