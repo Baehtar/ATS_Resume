@@ -250,7 +250,7 @@ def show_admin_dashboard():
         st.markdown(f"### 📄 Resume — {st.session_state['viewing_name']}")
         resume = db_client.load_resume(st.session_state["viewing_student"])
         if resume:
-            html = resume_templates.generate_resume_html(resume, "compact")
+            html = resume_templates.generate_resume_html(resume, "modern")
             pdf_data = compile_pdf(html)
             if pdf_data:
                 safe_name = st.session_state["viewing_name"].lower().replace(" ", "_")
