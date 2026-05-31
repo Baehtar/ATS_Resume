@@ -1,4 +1,4 @@
-# app.py - Edutech Data Science Career Portal (Streamlit Frontend)
+# app.py -(Streamlit Frontend)
 import streamlit as st
 import base64
 import json
@@ -11,8 +11,6 @@ import ats_analyzer
 from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import portal_db_client as db_client
-
-RESUME_EXPORT_TEMPLATE = "modern"
 
 
 # ─────────────────────────────────────────────────
@@ -252,11 +250,11 @@ def show_admin_dashboard():
         st.markdown(f"### 📄 Resume — {st.session_state['viewing_name']}")
         resume = db_client.load_resume(st.session_state["viewing_student"])
         if resume:
-            html = resume_templates.generate_resume_html(resume, RESUME_EXPORT_TEMPLATE)
+            template_id = st.selectbox("Template", ["compact", "modern", "classic", "executive"], key="admin_tmpl")
+            html = resume_templates.generate_resume_html(resume, template_id)
             pdf_data = compile_pdf(html)
             if pdf_data:
                 safe_name = st.session_state["viewing_name"].lower().replace(" ", "_")
-                show_pdf_preview(pdf_data)
                 st.download_button(
                     "🖨 Download Student Resume PDF",
                     data=pdf_data,
@@ -265,7 +263,10 @@ def show_admin_dashboard():
                     use_container_width=True,
                 )
             else:
-                st.error("Could not generate this student's PDF preview.")
+                st.warning("PDF download unavailable.")
+            st.markdown("<div style='border:1px solid #ddd; border-radius:8px; overflow:hidden;'>", unsafe_allow_html=True)
+            st.components.v1.html(html, height=800, scrolling=True)
+            st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.info("This student hasn't saved a resume yet.")
 
@@ -662,8 +663,7 @@ with tab_cv:
                 key="tmpl_select")
 
             html = resume_templates.generate_resume_html(st.session_state.resume, template_id)
-            export_html = resume_templates.generate_resume_html(st.session_state.resume, RESUME_EXPORT_TEMPLATE)
-            pdf_data = compile_pdf(export_html)
+            pdf_data = compile_pdf(html)
 
             if pdf_data:
                 safe_name = (st.session_state.resume["personal"].get("fullName", "resume") or "resume").lower().replace(" ","_")
