@@ -261,7 +261,7 @@ role = db_client.get_user_role(user_id)
 if role == "admin":
     show_admin_dashboard()
     st.stop()
-    
+
 # Helper: Convert HTML to PDF bytes
 def compile_pdf(html_content):
     try:
@@ -374,12 +374,7 @@ with st.sidebar:
         st.session_state.resume_loaded_from_db = False
         st.rerun()
 
-    st.markdown("---")
-    st.markdown(
-        "<small style='color:gray'>Keywords are loaded from <code>role_keywords.json</code>. "
-        "Edit that file to customize keywords for each role.</small>",
-        unsafe_allow_html=True
-    )
+    
 
 # ─────────────────────────────────────────────────
 # 4. MAIN CONTENT — THREE TABS
