@@ -270,7 +270,7 @@ def show_admin_dashboard():
         st.markdown(f"### 📄 Resume — {st.session_state['viewing_name']}")
         resume = db_client.load_resume(st.session_state["viewing_student"])
         if resume:
-            template_id = st.selectbox("Template", ["compact", "modern", "classic", "executive"], key="admin_tmpl")
+            template_id = st.selectbox("Template", ["modern", "classic", "executive"], key="admin_tmpl")
             html = resume_templates.generate_resume_html(resume, template_id)
             pdf_data = compile_pdf(html)
             if pdf_data:
@@ -676,8 +676,8 @@ with tab_cv:
                     st.markdown(f'<div class="warn-box {cls}"><strong>{icon}</strong> {w["message"]}</div>', unsafe_allow_html=True)
 
         with sub_preview:
-            template_id = st.selectbox("Template Style", ["compact", "modern", "classic", "executive"],
-                format_func=lambda x: {"compact":"Compact Professional (Reference CV)","modern":"Modern Tech (Sans-serif)","classic":"Classic Scholar (Serif)","executive":"Executive (Condensed)"}[x],
+            template_id = st.selectbox("Template Style", ["modern", "classic", "executive"],
+                format_func=lambda x: {"modern":"Modern Tech (Sans-serif)","classic":"Classic Scholar (Serif)","executive":"Executive (Condensed)"}[x],
                 key="tmpl_select")
 
             html = resume_templates.generate_resume_html(st.session_state.resume, template_id)
