@@ -71,25 +71,32 @@ Create three outputs in JSON with keys: summary, bullets (array of 8-12 strings)
 
 def _call_openai(prompt_text):
     try:
-        import openai
+        from openai import OpenAI
     except Exception:
         raise RuntimeError("openai package not installed")
 
     api_key = _get_openai_key()
     if not api_key:
-        raise RuntimeError("OpenAI API key not found. Set in .streamlit/secrets.toml or OPENAI_API_KEY env var.")
-    openai.api_key = api_key
+        raise RuntimeError("API key not found. Set in .streamlit/secrets.toml")
+    
     base_url = _get_openai_base()
-    if base_url:
-        openai.api_base = base_url
     model = _get_openai_model()
-    messages = [
-        {"role": "system", "content": BASE_PROMPT},
-        {"role": "user", "content": prompt_text}
-    ]
-    resp = openai.ChatCompletion.create(model=model, messages=messages, max_tokens=800, temperature=0.4)
-    text = resp["choices"][0]["message"]["content"]
-    return text
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url or "https://api.openai.com/v1"
+    )
+
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": BASE_PROMPT},
+            {"role": "user", "content": prompt_text}
+        ],
+        max_tokens=1500,
+        temperature=0.4
+    )
+    return resp.choices[0].message.content
 
 
 def _fallback_generation(user_info):
