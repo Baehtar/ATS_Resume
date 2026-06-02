@@ -394,26 +394,53 @@ def generate_resume_html(data, template_id, is_print=False):
             </div>
         """
 
-    # Font definitions for PDF renderer compatibility (ReportLab standard fonts)
-    # Standard PDF fonts include Helvetica, Times-Roman, Courier
-    font_family = "Helvetica"
-    font_title = "Helvetica-Bold"
-    
-    if template_id == "classic":
-        font_family = "Times-Roman"
-        font_title = "Times-Bold"
-    elif template_id == "executive":
-        font_family = "Times-Roman"
-        font_title = "Times-Bold"
-
-    # Base styling variables
+    layouts = {
+        "modern": {
+            "font_family": "Helvetica",
+            "font_title": "Helvetica-Bold",
+            "accent_color": "#1a365d",
+            "border_color": "#cbd5e1",
+            "header_alignment": "center",
+            "sections": (summary_html, experience_html, education_html, projects_html, skills_html, certifications_html),
+        },
+        "professional": {
+            "font_family": "Helvetica",
+            "font_title": "Helvetica-Bold",
+            "accent_color": "#111827",
+            "border_color": "#111827",
+            "header_alignment": "left",
+            "sections": (summary_html, skills_html, experience_html, projects_html, education_html, certifications_html),
+        },
+        "graduate": {
+            "font_family": "Helvetica",
+            "font_title": "Helvetica-Bold",
+            "accent_color": "#1d4ed8",
+            "border_color": "#93c5fd",
+            "header_alignment": "left",
+            "sections": (summary_html, education_html, projects_html, skills_html, experience_html, certifications_html),
+        },
+        "executive": {
+            "font_family": "Times-Roman",
+            "font_title": "Times-Bold",
+            "accent_color": "#111111",
+            "border_color": "#222222",
+            "header_alignment": "left",
+            "sections": (summary_html, experience_html, skills_html, education_html, projects_html, certifications_html),
+        },
+    }
+    layout = layouts.get(template_id, layouts["modern"])
+    font_family = layout["font_family"]
+    font_title = layout["font_title"]
+    accent_color = layout["accent_color"]
+    border_color = layout["border_color"]
+    header_alignment = layout["header_alignment"]
+    sections_html = "".join(layout["sections"])
+    headline_html = (
+        f'<div class="professional-headline">{personal.get("headline", "")}</div>'
+        if personal.get("headline")
+        else ""
+    )
     primary_color = "#111111"
-    border_color = "#222222"
-    accent_color = "#111111"
-    
-    if template_id == "modern":
-        accent_color = "#1a365d" # Dark blue
-        border_color = "#cbd5e1" # Slate light
 
     # Combine layout HTML
     html_out = f"""
@@ -432,7 +459,7 @@ def generate_resume_html(data, template_id, is_print=False):
                 background-color: #ffffff;
             }}
             .resume-header {{
-                text-align: center;
+                text-align: {header_alignment};
                 margin-bottom: 12pt;
             }}
             .user-name {{
@@ -446,6 +473,12 @@ def generate_resume_html(data, template_id, is_print=False):
             .contact-info {{
                 font-size: 9pt;
                 color: #333333;
+            }}
+            .professional-headline {{
+                color: {accent_color};
+                font-size: 10pt;
+                font-weight: bold;
+                margin: -1pt 0 3pt 0;
             }}
             .contact-info a {{
                 color: #111111;
@@ -508,21 +541,35 @@ def generate_resume_html(data, template_id, is_print=False):
                 color: #555555;
                 font-weight: normal;
             }}
+            body.layout-professional .resume-header {{
+                border-bottom: 2px solid {border_color};
+                padding-bottom: 6pt;
+            }}
+            body.layout-professional .section-title {{
+                border-bottom-width: 2px;
+            }}
+            body.layout-graduate .user-name {{
+                font-size: 20pt;
+                text-transform: none;
+            }}
+            body.layout-graduate .section-title {{
+                font-size: 10pt;
+            }}
+            body.layout-executive .user-name {{
+                font-size: 24pt;
+                letter-spacing: 0;
+            }}
         </style>
     </head>
-    <body>
+    <body class="layout-{template_id}">
         <div class="resume-header">
             <h1 class="user-name">{personal.get("fullName") or "Your Name"}</h1>
+            {headline_html}
             <div class="contact-info">
                 {contact_html}
             </div>
         </div>
-        {summary_html}
-        {experience_html}
-        {education_html}
-        {projects_html}
-        {skills_html}
-        {certifications_html}
+        {sections_html}
     </body>
     </html>
     """

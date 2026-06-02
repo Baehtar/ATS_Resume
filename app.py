@@ -12,6 +12,13 @@ from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import portal_db_client as db_client
 
+TEMPLATE_OPTIONS = {
+    "modern": "Modern",
+    "professional": "Professional",
+    "graduate": "Graduate / Fresher",
+    "executive": "Executive",
+}
+
 
 # ─────────────────────────────────────────────────
 # 1. PAGE CONFIG & GLOBAL STYLING
@@ -279,7 +286,12 @@ def show_admin_dashboard():
         st.markdown(f"### 📄 Resume — {st.session_state['viewing_name']}")
         resume = db_client.load_resume(st.session_state["viewing_student"])
         if resume:
-            template_id = st.selectbox("Template", ["modern", "classic", "executive"], key="admin_tmpl")
+            template_id = st.selectbox(
+                "Template",
+                options=list(TEMPLATE_OPTIONS),
+                format_func=lambda template: TEMPLATE_OPTIONS[template],
+                key="admin_tmpl",
+            )
             html = resume_templates.generate_resume_html(resume, template_id)
             pdf_data = compile_pdf(html)
             if pdf_data:
@@ -686,9 +698,12 @@ with tab_cv:
                     st.markdown(f'<div class="warn-box {cls}"><strong>{icon}</strong> {w["message"]}</div>', unsafe_allow_html=True)
 
         with sub_preview:
-            template_id = st.selectbox("Template Style", ["modern", "classic", "executive"],
-                format_func=lambda x: {"modern":"Modern Tech (Sans-serif)","classic":"Classic Scholar (Serif)","executive":"Executive (Condensed)"}[x],
-                key="tmpl_select")
+            template_id = st.selectbox(
+                "Template Style",
+                options=list(TEMPLATE_OPTIONS),
+                format_func=lambda template: TEMPLATE_OPTIONS[template],
+                key="tmpl_select",
+            )
 
             html = resume_templates.generate_resume_html(st.session_state.resume, template_id)
             pdf_data = compile_pdf(html)

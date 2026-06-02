@@ -10,7 +10,7 @@ venv/
 .venv/
 
 # Streamlit
-.streamlit/secrets.toml   # keep private keys out of the repo
+.streamlit/secrets.toml
 streamlit_app.log
 
 # OS / IDE files
