@@ -8,6 +8,7 @@ from weasyprint import HTML
 
 import resume_templates
 import ats_analyzer
+import resume_generator
 from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
 import portal_db_client as db_client
@@ -507,6 +508,58 @@ with tab_cv:
 
         # Work Experience
         with st.expander("💼 Work / Internship Experience", expanded=False):
+            st.markdown("#### ✨ AI Experience Generator")
+            st.markdown("Provide concise details and click 'Generate Experience (AI)' to create ATS-friendly bullets.")
+            ai_col1, ai_col2 = st.columns(2)
+            with ai_col1:
+                ai_current_role = st.text_input("Current Role:", value="", key="ai_current_role")
+                ai_domain = st.text_input("Industry / Domain:", value="", key="ai_domain",
+                                          placeholder="e.g. Retail, Healthcare, Banking")
+                ai_years = st.text_input("Years of Experience:", value="", key="ai_years")
+            with ai_col2:
+                ai_daily = st.text_area("Daily Activities (short):", value="", key="ai_daily", height=80,
+                                        placeholder="What you do day-to-day (brief)")
+                ai_tools = st.text_input("Tools I Actually Use:", value="", key="ai_tools",
+                                         placeholder="e.g. PySpark, Databricks, Azure Data Factory")
+                ai_client = st.text_input("Client Name (optional):", value="", key="ai_client",
+                                          placeholder="Optional client or project name")
+
+            if st.button("Generate Experience (AI)", key="gen_ai_exp"):
+                user_info = {
+                    "current_role": ai_current_role or st.session_state.resume["personal"].get("headline", ""),
+                    "domain": ai_domain,
+                    "daily_activities": ai_daily,
+                    "tools": ai_tools,
+                    "client": ai_client,
+                    "years": ai_years or "",
+                    "target_role": "data_engineer"
+                }
+                with st.spinner("Generating experience via AI..."):
+                    try:
+                        gen = resume_generator.generate_experience(user_info)
+                    except Exception as e:
+                        st.error(f"AI generation failed: {e}")
+                        gen = None
+
+                if gen:
+                    # Apply generated summary and experience
+                    if gen.get("summary"):
+                        st.session_state.resume["summary"] = gen["summary"]
+
+                    bullets = gen.get("bullets") or []
+                    company_name = ai_client or (bullets and "Generated Project")
+                    exp_entry = {"company": company_name or "Generated Project",
+                                 "role": user_info.get("current_role", ""),
+                                 "location": "",
+                                 "startDate": "",
+                                 "endDate": "",
+                                 "bullets": bullets}
+                    st.session_state.resume["experience"] = [exp_entry]
+                    # Save project story for review
+                    st.session_state["ai_project_story"] = gen.get("project_story", "")
+                    st.success("AI-generated experience added to resume. Review and edit as needed.")
+                    st.rerun()
+
             exp_list = st.session_state.resume.get("experience", [])
             if st.button("+ Add Experience Entry", use_container_width=True, key="add_exp"):
                 exp_list.append({"company":"","role":"","location":"","startDate":"","endDate":"","bullets":[""]})
