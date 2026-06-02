@@ -534,9 +534,16 @@ with tab_cv:
                     "years": ai_years or "",
                     "target_role": "data_engineer"
                 }
+                # with st.spinner("Generating experience via AI..."):
+                #     try:
+                #         gen = resume_generator.generate_experience(user_info)
+                #     except Exception as e:
+                #         st.error(f"AI generation failed: {e}")
+                #         gen = None
                 with st.spinner("Generating experience via AI..."):
                     try:
                         gen = resume_generator.generate_experience(user_info)
+                        st.write("DEBUG:", gen.get("api_used"), gen.get("api_error"))
                     except Exception as e:
                         st.error(f"AI generation failed: {e}")
                         gen = None
