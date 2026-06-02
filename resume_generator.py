@@ -8,7 +8,6 @@ import random
 
 def _get_openai_key():
     """Try Streamlit secrets first, then environment variables."""
-    # Prefer Streamlit secrets when running inside Streamlit
     try:
         import streamlit as st
         try:
@@ -18,10 +17,38 @@ def _get_openai_key():
         except Exception:
             pass
     except Exception:
-        # not running inside Streamlit or import failed
         pass
-
     return os.environ.get("OPENAI_API_KEY")
+
+
+def _get_openai_base():
+    """Return an OpenAI-compatible base URL if specified."""
+    try:
+        import streamlit as st
+        try:
+            base = st.secrets.get("openai", {}).get("base_url") or st.secrets.get("openai", {}).get("api_base")
+            if base:
+                return base
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return os.environ.get("OPENAI_API_BASE")
+
+
+def _get_openai_model():
+    """Return the model name to use for ChatCompletion."""
+    try:
+        import streamlit as st
+        try:
+            model = st.secrets.get("openai", {}).get("model")
+            if model:
+                return model
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo")
 
 BASE_PROMPT = '''You are a Senior Data Engineering Resume Writer and Hiring Manager with 15+ years of experience hiring Data Engineers for companies using Azure, Databricks, Spark, AWS, Snowflake, and modern cloud data platforms.
 Your task is to transform my real work experience into highly professional, ATS-friendly, and believable Data Engineer resume bullet points.
@@ -52,12 +79,15 @@ def _call_openai(prompt_text):
     if not api_key:
         raise RuntimeError("OpenAI API key not found. Set in .streamlit/secrets.toml or OPENAI_API_KEY env var.")
     openai.api_key = api_key
-    # Use ChatCompletions with gpt-3.5-turbo for compatibility
+    base_url = _get_openai_base()
+    if base_url:
+        openai.api_base = base_url
+    model = _get_openai_model()
     messages = [
         {"role": "system", "content": BASE_PROMPT},
         {"role": "user", "content": prompt_text}
     ]
-    resp = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages, max_tokens=800, temperature=0.4)
+    resp = openai.ChatCompletion.create(model=model, messages=messages, max_tokens=800, temperature=0.4)
     text = resp["choices"][0]["message"]["content"]
     return text
 
@@ -112,22 +142,29 @@ def generate_experience(user_info):
 
     prompt_text = info_block + "\nPlease return a JSON object with keys: summary, bullets, project_story. bullets should be an array of 8-12 strings."
 
-    # Attempt API call
+    api_error = None
     try:
         raw = _call_openai(prompt_text)
         # Try to extract JSON from response
-        # Find first { and last }
         start = raw.find('{')
         end = raw.rfind('}')
         if start != -1 and end != -1 and end > start:
             js = raw[start:end+1]
             data = json.loads(js)
-            # Normalize bullets
             bullets = data.get('bullets') or []
             bullets = [b.strip() for b in bullets if b and isinstance(b, str)]
-            return {"summary": data.get('summary',''), "bullets": bullets, "project_story": data.get('project_story','')}
-        else:
-            # If not JSON, return fallback
-            return _fallback_generation(user_info)
-    except Exception:
-        return _fallback_generation(user_info)
+            return {
+                "summary": data.get('summary',''),
+                "bullets": bullets,
+                "project_story": data.get('project_story',''),
+                "api_used": True,
+                "api_error": None
+            }
+        api_error = "OpenAI response did not return valid JSON"
+    except Exception as exc:
+        api_error = str(exc)
+
+    fallback = _fallback_generation(user_info)
+    fallback["api_used"] = False
+    fallback["api_error"] = api_error
+    return fallback

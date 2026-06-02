@@ -557,7 +557,12 @@ with tab_cv:
                     st.session_state.resume["experience"] = [exp_entry]
                     # Save project story for review
                     st.session_state["ai_project_story"] = gen.get("project_story", "")
-                    st.success("AI-generated experience added to resume. Review and edit as needed.")
+
+                    if not gen.get("api_used", False):
+                        error_text = gen.get("api_error") or "OpenAI API call was not completed."
+                        st.warning(f"Using fallback resume generation because the AI API was unavailable: {error_text}")
+                    else:
+                        st.success("AI-generated experience added using the OpenAI API. Review and edit as needed.")
                     st.rerun()
 
             exp_list = st.session_state.resume.get("experience", [])
