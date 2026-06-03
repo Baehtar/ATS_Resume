@@ -283,18 +283,35 @@ def generate_entry_bullets(entry_info):
     return {"bullets": fallback.get('bullets', []), "api_used": False, "api_error": api_error}
 
 
-def generate_professional_summary(personal, experience, target_role):
-    """Generate a professional summary from profile and experience entries."""
+def generate_professional_summary(profile_statement, personal, experience, education, projects, skills, target_role):
+    """Generate a professional summary from the full resume profile and content."""
     experience_summary = "\n".join(
         [f"{exp.get('role','')} at {exp.get('company','')}" for exp in experience if exp.get('role') or exp.get('company')]
     )
+    
+    education_summary = "\n".join(
+        [f"{edu.get('degree','')} from {edu.get('school','')}" for edu in education if edu.get('degree') or edu.get('school')]
+    )
+    
+    projects_summary = "\n".join(
+        [f"{proj.get('name','')} ({proj.get('tech','')})" for proj in projects if proj.get('name')]
+    )
+    
+    skills_summary = "\n".join(
+        [f"{s.get('category','')} | {s.get('list','')}" for s in skills if s.get('list')]
+    )
+    
     prompt_text = (
         "You are an expert Data Engineering Resume Writer with experience hiring Data Engineers at product companies, consulting firms, and Fortune 500 organizations. "
-        "Write a strong professional resume summary based on the candidate profile and experience details below. "
+        "Write a strong professional resume summary based on the complete candidate profile below. "
         "Use concise, ATS-friendly language and highlight transferable technical strengths, impact, and role fit. "
         "Return only valid JSON with a key named summary.\n\n"
         f"Profile Headline:\n{personal.get('headline','')}\n"
-        f"Experience Summary:\n{experience_summary}\n"
+        f"Current Profile Statement:\n{profile_statement}\n"
+        f"Experience:\n{experience_summary}\n"
+        f"Education:\n{education_summary}\n"
+        f"Projects:\n{projects_summary}\n"
+        f"Skills:\n{skills_summary}\n"
         f"Target Role:\n{target_role}\n"
     )
 
