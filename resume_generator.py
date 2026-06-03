@@ -96,7 +96,7 @@ Your task is to transform my actual work experience into highly professional, AT
 
 ### Writing Style
 
-* Write 8–15 bullet points.
+* Write 2–6 bullet points.
 * Every bullet should sound like real production work.
 * Avoid generic phrases like:
 
