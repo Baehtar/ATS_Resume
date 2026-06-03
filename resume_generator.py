@@ -50,26 +50,125 @@ def _get_openai_model():
         pass
     return os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo")
 
-BASE_PROMPT = '''You are a Senior Data Engineering Resume Writer and Hiring Manager with 15+ years of experience hiring Data Engineers for companies using Azure, Databricks, Spark, AWS, Snowflake, and modern cloud data platforms.
-Your task is to transform my real work experience into highly professional, ATS-friendly, and believable Data Engineer resume bullet points.
-Important Rules
-NEVER fabricate impossible achievements.
-You may intelligently reinterpret my experience from a Data Engineering perspective if it is logically connected.
-Every bullet point must sound like actual work performed in a real company.
-Use strong action verbs.
-Quantify impact whenever possible.
-Create a realistic business story behind the work.
-Mention relevant stakeholders, business users, reporting teams, analytics teams, operations teams, etc.
-If suitable, map my experience to real-world clients or industries.
-Wherever possible, incorporate Data Engineering technologies naturally: Databricks, PySpark, Spark SQL, Delta Lake, Azure Data Factory, Azure Data Lake Storage Gen2, Medallion Architecture, Bronze / Silver / Gold Layers, Data Pipelines, ETL / ELT, Incremental Loading, CDC, Data Validation, Data Quality Checks, Data Modeling, Star Schema, Surrogate Keys, SCD Type 1, SCD Type 2, Workflow Automation, SQL, Git, CI/CD, Performance Optimization, Partitioning, Caching, Job Scheduling, Monitoring, Logging, Cloud Infrastructure.
-If a domain is provided, create domain-specific business use cases.
-If a client name is provided, weave it naturally into the project context (do NOT claim you worked for the client directly).
+BASE_PROMPT = '''You are an expert Data Engineering Resume Writer with experience hiring Data Engineers at product companies, consulting firms, and Fortune 500 organizations.
 
-Create three outputs in JSON with keys: summary, bullets (array of 8-12 strings), project_story (string). Return ONLY valid JSON.
-'''
+Your task is to transform my actual work experience into highly professional, ATS-friendly, interview-ready Data Engineer experience bullet points.
+
+### Instructions
+
+1. Generate ONLY the Experience Section.
+2. Do not create a resume summary, skills section, certifications, or projects.
+3. Convert my existing responsibilities into Data Engineering-focused responsibilities wherever logically possible.
+4. Maintain realism. Do not invent impossible achievements.
+5. Make the experience sound genuine and believable to an experienced interviewer.
+6. Use strong action verbs and professional corporate language.
+7. Write each bullet point as if it was performed in a production environment.
+8. Include measurable business impact whenever reasonable.
+9. Create a coherent business story behind the work instead of listing random technologies.
+10. If a client name is provided, naturally incorporate it into the experience.
+11. If a domain is provided, create domain-specific data engineering use cases.
+12. Focus heavily on:
+
+* Databricks
+* PySpark
+* Spark SQL
+* Delta Lake
+* Azure Data Factory
+* Azure Data Lake Storage Gen2
+* Medallion Architecture
+* ETL / ELT Pipelines
+* Incremental Loading
+* CDC
+* Data Quality Frameworks
+* Workflow Orchestration
+* Data Validation
+* Data Modeling
+* Star Schema
+* SCD Type 1 / Type 2
+* Partitioning
+* Performance Optimization
+* Monitoring & Logging
+* SQL
+* Cloud Data Platforms
+* CI/CD
+* Data Governance
+* Reporting Enablement
+
+### Writing Style
+
+* Write 8–15 bullet points.
+* Every bullet should sound like real production work.
+* Avoid generic phrases like:
+
+  * "Worked on Databricks"
+  * "Used PySpark"
+  * "Responsible for data engineering"
+
+Instead write contextual business-focused statements such as:
+
+"Designed and maintained PySpark-based transformation pipelines within Databricks to process high-volume retail transaction data, supporting downstream inventory and sales analytics."
+
+### Important
+
+If my current experience has no direct Data Engineering exposure, intelligently reinterpret transferable responsibilities from a Data Engineering perspective while staying believable.
+
+For example:
+
+Sales Analyst → Customer Analytics Data Pipelines
+
+Operations Executive → Operational Reporting & Data Integration
+
+MIS Executive → Data Warehousing & Reporting Automation
+
+Business Analyst → Data Transformation & Reporting Pipelines
+
+Excel Reporting → ETL Automation & Analytics Enablement
+
+### Input
+
+Company:
+[PASTE]
+
+Designation:
+[PASTE]
+
+Industry/Domain:
+[PASTE]
+
+Client (if any):
+[PASTE]
+
+Actual Responsibilities:
+[PASTE]
+
+Tools Used:
+[PASTE]
+
+Years of Experience:
+[PASTE]
+
+### Output Format
+
+Company Name | Designation | Duration
+
+• Bullet Point 1
+
+• Bullet Point 2
+
+• Bullet Point 3
+
+...
+
+Generate only the Experience Section in ATS-friendly resume format.'''
+
+SUMMARY_PROMPT = '''You are an expert Data Engineering Resume Writer with experience hiring Data Engineers at product companies, consulting firms, and Fortune 500 organizations.
+
+Your task is to write a strong, ATS-friendly professional resume summary based on the candidate profile and experience details.
+
+Return only valid JSON with a key named summary.''' 
 
 
-def _call_openai(prompt_text):
+def _call_openai(prompt_text, system_prompt=None):
     try:
         from openai import OpenAI
     except Exception:
@@ -90,13 +189,21 @@ def _call_openai(prompt_text):
     resp = client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": BASE_PROMPT},
+            {"role": "system", "content": system_prompt or BASE_PROMPT},
             {"role": "user", "content": prompt_text}
         ],
         max_tokens=1500,
         temperature=0.4
     )
     return resp.choices[0].message.content
+
+
+def _parse_openai_json(raw_text):
+    start = raw_text.find("{")
+    end = raw_text.rfind("}")
+    if start == -1 or end == -1 or start >= end:
+        raise ValueError("OpenAI response did not return valid JSON")
+    return json.loads(raw_text[start:end+1])
 
 
 def _fallback_generation(user_info):
@@ -108,18 +215,17 @@ def _fallback_generation(user_info):
     client = user_info.get("client") or ""
 
     bullets = []
-    # Try to extract short actionable phrases from daily activities
     fragments = [f.strip() for f in daily.split(".") if f.strip()]
-    for i, frag in enumerate(fragments[:8]):
+    for i, frag in enumerate(fragments[:4]):
         verb = random.choice(verbs)
-        tech = tools.split(",")[0] if tools else "" 
+        tech = tools.split(",")[0] if tools else ""
         suffix = f" using {tech}" if tech else ""
         ctx = f" for {client}" if client else ""
         sentence = f"{verb.capitalize()} {frag.strip().rstrip('.')} {suffix}{ctx}."
         bullets.append(sentence)
 
     # If not enough bullets, add generic ones
-    while len(bullets) < 8:
+    while len(bullets) < 4:
         verb = random.choice(verbs)
         tech = tools.split(",")[0] if tools else "PySpark"
         bullets.append(f"{verb.capitalize()} data pipelines and ETL jobs using {tech} to support {domain or 'business'} reporting.")
@@ -127,6 +233,83 @@ def _fallback_generation(user_info):
     summary = f"Data Engineer with {user_info.get('years','')} years of experience working on {domain or 'data'} projects. Skilled in {tools}."
     project_story = f"Generated project for {client or 'internal stakeholders'}: {summary}"
     return {"summary": summary, "bullets": bullets, "project_story": project_story}
+
+
+def _fallback_summary(personal, experience, target_role):
+    name = personal.get("fullName", "").strip()
+    title = personal.get("headline", "").strip() or target_role.replace("_", " ").title()
+    exp_count = len(experience)
+    summary = (
+        f"{title} with {exp_count} experience entries and a strong focus on {target_role.replace('_', ' ')}. "
+        f"Skilled at translating technical work into business impact and building ATS-friendly resumes."
+    )
+    if name:
+        summary = f"{name} is {summary}"
+    return {"summary": summary}
+
+
+def generate_entry_bullets(entry_info):
+    """Generate 2-6 ATS-friendly bullet points for one experience entry."""
+    prompt_text = (
+        f"Company:\n{entry_info.get('company','')}\n"
+        f"Designation:\n{entry_info.get('role','')}\n"
+        f"Industry/Domain:\n{entry_info.get('domain','')}\n"
+        f"Client (if any):\n{entry_info.get('client','')}\n"
+        f"Actual Responsibilities:\n{entry_info.get('details','')}\n"
+        f"Tools Used:\n{entry_info.get('tools','')}\n"
+        f"Years of Experience:\n{entry_info.get('years','')}\n"
+        f"Target Role:\n{entry_info.get('target_role','data_engineer')}\n\n"
+        "Please generate 2-6 ATS-friendly experience bullet points for this role. "
+        "Return valid JSON only with a key named bullets containing an array of strings."
+    )
+
+    api_error = None
+    try:
+        raw = _call_openai(prompt_text)
+        data = _parse_openai_json(raw)
+        bullets = data.get('bullets') or []
+        bullets = [b.strip() for b in bullets if b and isinstance(b, str)]
+        return {"bullets": bullets, "api_used": True, "api_error": None}
+    except Exception as exc:
+        api_error = str(exc)
+
+    fallback = _fallback_generation({
+        "daily_activities": entry_info.get('details', ''),
+        "tools": entry_info.get('tools', ''),
+        "client": entry_info.get('client', entry_info.get('company', '')),
+        "domain": entry_info.get('domain', ''),
+        "years": entry_info.get('years', '')
+    })
+    return {"bullets": fallback.get('bullets', []), "api_used": False, "api_error": api_error}
+
+
+def generate_professional_summary(personal, experience, target_role):
+    """Generate a professional summary from profile and experience entries."""
+    experience_summary = "\n".join(
+        [f"{exp.get('role','')} at {exp.get('company','')}" for exp in experience if exp.get('role') or exp.get('company')]
+    )
+    prompt_text = (
+        "You are an expert Data Engineering Resume Writer with experience hiring Data Engineers at product companies, consulting firms, and Fortune 500 organizations. "
+        "Write a strong professional resume summary based on the candidate profile and experience details below. "
+        "Use concise, ATS-friendly language and highlight transferable technical strengths, impact, and role fit. "
+        "Return only valid JSON with a key named summary.\n\n"
+        f"Profile Headline:\n{personal.get('headline','')}\n"
+        f"Experience Summary:\n{experience_summary}\n"
+        f"Target Role:\n{target_role}\n"
+    )
+
+    api_error = None
+    try:
+        raw = _call_openai(prompt_text, system_prompt=SUMMARY_PROMPT)
+        data = _parse_openai_json(raw)
+        return {"summary": data.get('summary', '').strip(), "api_used": True, "api_error": None}
+    except Exception as exc:
+        api_error = str(exc)
+
+    fallback = _fallback_summary(personal, experience, target_role)
+    fallback["api_used"] = False
+    fallback["api_error"] = api_error
+    return fallback
 
 
 def generate_experience(user_info):
@@ -152,22 +335,16 @@ def generate_experience(user_info):
     api_error = None
     try:
         raw = _call_openai(prompt_text)
-        # Try to extract JSON from response
-        start = raw.find('{')
-        end = raw.rfind('}')
-        if start != -1 and end != -1 and end > start:
-            js = raw[start:end+1]
-            data = json.loads(js)
-            bullets = data.get('bullets') or []
-            bullets = [b.strip() for b in bullets if b and isinstance(b, str)]
-            return {
-                "summary": data.get('summary',''),
-                "bullets": bullets,
-                "project_story": data.get('project_story',''),
-                "api_used": True,
-                "api_error": None
-            }
-        api_error = "OpenAI response did not return valid JSON"
+        data = _parse_openai_json(raw)
+        bullets = data.get('bullets') or []
+        bullets = [b.strip() for b in bullets if b and isinstance(b, str)]
+        return {
+            "summary": data.get('summary',''),
+            "bullets": bullets,
+            "project_story": data.get('project_story',''),
+            "api_used": True,
+            "api_error": None
+        }
     except Exception as exc:
         api_error = str(exc)
 
