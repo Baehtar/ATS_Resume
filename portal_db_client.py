@@ -114,15 +114,7 @@ def sign_in_student(email, password):
         return {"session": None, "user": None, "error": error_msg}
 
 def _get_password_reset_redirect_url():
-    """Return an optional URL Supabase should open after the reset email link."""
-    try:
-        redirect_url = st.secrets.get("supabase", {}).get("password_reset_redirect_url")
-        if redirect_url:
-            return redirect_url.strip().strip('"').strip("'")
-    except Exception:
-        pass
-    redirect_url = os.environ.get("SUPABASE_PASSWORD_RESET_REDIRECT_URL")
-    return redirect_url.strip() if redirect_url else None
+    return "https://consoleflare.streamlit.app/?reset=1"
 
 def reset_password_student(email):
     """Send a Supabase password reset email for the given student email."""
