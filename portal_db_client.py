@@ -113,6 +113,53 @@ def sign_in_student(email, password):
             error_msg = "Invalid email or password. Please try again."
         return {"session": None, "user": None, "error": error_msg}
 
+def _get_password_reset_redirect_url():
+    """Return an optional URL Supabase should open after the reset email link."""
+    try:
+        redirect_url = st.secrets.get("supabase", {}).get("password_reset_redirect_url")
+        if redirect_url:
+            return redirect_url.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    redirect_url = os.environ.get("SUPABASE_PASSWORD_RESET_REDIRECT_URL")
+    return redirect_url.strip() if redirect_url else None
+
+def reset_password_student(email):
+    """Send a Supabase password reset email for the given student email."""
+    client = get_supabase_client()
+    if not client:
+        return {"ok": False, "error": "Supabase client is not configured."}
+
+    email = (email or "").strip()
+    if not email:
+        return {"ok": False, "error": "Please enter your email to reset password."}
+
+    try:
+        redirect_url = _get_password_reset_redirect_url()
+        options = {"redirect_to": redirect_url} if redirect_url else None
+
+        if hasattr(client.auth, "reset_password_email"):
+            if options:
+                client.auth.reset_password_email(email, options=options)
+            else:
+                client.auth.reset_password_email(email)
+        elif hasattr(client.auth, "reset_password_for_email"):
+            if options:
+                client.auth.reset_password_for_email(email, options=options)
+            else:
+                client.auth.reset_password_for_email(email)
+        else:
+            return {"ok": False, "error": "This Supabase client version does not support password reset emails."}
+
+        return {"ok": True, "error": None}
+    except Exception as e:
+        error_msg = str(e)
+        if "email rate limit" in error_msg.lower() or "rate limit" in error_msg.lower():
+            error_msg = "Too many password reset attempts. Please wait a few minutes and try again."
+        elif "invalid email" in error_msg.lower():
+            error_msg = "Please enter a valid email address."
+        return {"ok": False, "error": error_msg}
+
 def sign_out_student():
     """Sign out the current active session."""
     client = get_supabase_client()
