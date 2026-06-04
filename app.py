@@ -177,6 +177,8 @@ if st.session_state.user is None:
                     st.error("Please enter and confirm your new password.")
                 elif new_password != confirm_password:
                     st.error("Passwords do not match.")
+                elif not hasattr(db_client, "update_password_after_recovery"):
+                    st.error("Password reset is not fully deployed yet. Please redeploy the app and try the reset link again.")
                 else:
                     result = db_client.update_password_after_recovery(
                         new_password,

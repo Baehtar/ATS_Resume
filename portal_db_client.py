@@ -172,17 +172,22 @@ def update_password_after_recovery(new_password, access_token=None, refresh_toke
 
     try:
         if code:
-            if not hasattr(client.auth, "exchange_code_for_session"):
+            exchange_code_for_session = getattr(client.auth, "exchange_code_for_session", None)
+            if not exchange_code_for_session:
                 return {"ok": False, "error": "This Supabase client version does not support recovery code exchange."}
-            client.auth.exchange_code_for_session(code)
+            exchange_code_for_session(code)
         elif access_token and refresh_token:
-            if not hasattr(client.auth, "set_session"):
+            set_session = getattr(client.auth, "set_session", None)
+            if not set_session:
                 return {"ok": False, "error": "This Supabase client version does not support recovery sessions."}
-            client.auth.set_session(access_token, refresh_token)
+            set_session(access_token, refresh_token)
         else:
             return {"ok": False, "error": "Password reset link is missing recovery credentials. Please request a new reset email."}
 
-        client.auth.update_user({"password": new_password})
+        update_user = getattr(client.auth, "update_user", None)
+        if not update_user:
+            return {"ok": False, "error": "This Supabase client version does not support password updates."}
+        update_user({"password": new_password})
         return {"ok": True, "error": None}
     except Exception as e:
         error_msg = str(e)
