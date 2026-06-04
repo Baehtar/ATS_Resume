@@ -111,9 +111,54 @@ BATCH_OPTIONS = [
 ]
 COURSE_OPTIONS = ["Select your course...", "Data Engineer", "Data Analyst"]
 
+def get_query_param(name):
+    value = st.query_params.get(name)
+    if isinstance(value, list):
+        return value[0] if value else None
+    return value
+
+def clear_recovery_query_params():
+    try:
+        st.query_params.clear()
+    except Exception:
+        pass
+
+def bridge_recovery_hash_to_query_params():
+    st.components.v1.html(
+        """
+        <script>
+        const loc = window.parent.location;
+        if (loc.hash && loc.hash.length > 1) {
+            const hashParams = new URLSearchParams(loc.hash.slice(1));
+            const hasRecovery = hashParams.has("access_token") ||
+                hashParams.has("refresh_token") ||
+                hashParams.get("type") === "recovery";
+            if (hasRecovery) {
+                const url = new URL(loc.href);
+                hashParams.forEach((value, key) => url.searchParams.set(key, value));
+                url.searchParams.set("reset", "1");
+                url.hash = "";
+                loc.replace(url.toString());
+            }
+        }
+        </script>
+        """,
+        height=0,
+    )
+
 # Check if user is logged in
 if st.session_state.user is None:
     supabase_ready = db_client.is_configured()
+    bridge_recovery_hash_to_query_params()
+    recovery_code = get_query_param("code")
+    recovery_access_token = get_query_param("access_token")
+    recovery_refresh_token = get_query_param("refresh_token")
+    is_recovery = (
+        get_query_param("reset") == "1"
+        or get_query_param("type") == "recovery"
+        or bool(recovery_code)
+        or bool(recovery_access_token and recovery_refresh_token)
+    )
     
     st.markdown("<h2 style='text-align: center; margin-top: 30px; color: #3b82f6;'>🚀 Console Flare Portal</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: gray;'>Sign in to access your ATS Resume Builder & Career Tools</p>", unsafe_allow_html=True)
@@ -121,6 +166,36 @@ if st.session_state.user is None:
     col_a, col_b, col_c = st.columns([1, 1.8, 1])
     
     with col_b:
+        if is_recovery:
+            st.markdown("#### Set New Password")
+            st.caption("Enter a new password for your Console Flare account.")
+            new_password = st.text_input("New Password", type="password", key="reset_new_password")
+            confirm_password = st.text_input("Confirm New Password", type="password", key="reset_confirm_password")
+
+            if st.button("Update Password", type="primary", use_container_width=True):
+                if not new_password or not confirm_password:
+                    st.error("Please enter and confirm your new password.")
+                elif new_password != confirm_password:
+                    st.error("Passwords do not match.")
+                else:
+                    result = db_client.update_password_after_recovery(
+                        new_password,
+                        access_token=recovery_access_token,
+                        refresh_token=recovery_refresh_token,
+                        code=recovery_code,
+                    )
+                    if result.get("error"):
+                        st.error(result["error"])
+                    else:
+                        clear_recovery_query_params()
+                        st.success("Password updated successfully. Please sign in with your new password.")
+                        st.stop()
+
+            if st.button("Back to Sign In", use_container_width=True):
+                clear_recovery_query_params()
+                st.rerun()
+            st.stop()
+
         if not supabase_ready:
             st.warning("⚠️ **Supabase Connection Pending**")
             st.markdown(
