@@ -127,20 +127,24 @@ def bridge_recovery_hash_to_query_params():
     st.components.v1.html(
         """
         <script>
-        const loc = window.parent.location;
-        if (loc.hash && loc.hash.length > 1) {
-            const hashParams = new URLSearchParams(loc.hash.slice(1));
-            const hasRecovery = hashParams.has("access_token") ||
-                hashParams.has("refresh_token") ||
-                hashParams.get("type") === "recovery";
-            if (hasRecovery) {
-                const url = new URL(loc.href);
-                hashParams.forEach((value, key) => url.searchParams.set(key, value));
-                url.searchParams.set("reset", "1");
-                url.hash = "";
-                loc.replace(url.toString());
+        (function() {
+            const hash = window.parent.location.hash;
+            if (hash && hash.length > 1) {
+                const params = new URLSearchParams(hash.slice(1));
+                const type = params.get("type");
+                const accessToken = params.get("access_token");
+                const refreshToken = params.get("refresh_token");
+                if (type === "recovery" || accessToken) {
+                    const newUrl = new URL(window.parent.location.href);
+                    newUrl.hash = "";
+                    if (accessToken) newUrl.searchParams.set("access_token", accessToken);
+                    if (refreshToken) newUrl.searchParams.set("refresh_token", refreshToken);
+                    if (type) newUrl.searchParams.set("type", type);
+                    newUrl.searchParams.set("reset", "1");
+                    window.parent.location.replace(newUrl.toString());
+                }
             }
-        }
+        })();
         </script>
         """,
         height=0,
@@ -158,7 +162,7 @@ if st.session_state.user is None:
         get_query_param("reset") == "1"
         or get_query_param("type") == "recovery"
         or bool(recovery_code)
-        or bool(recovery_access_token and recovery_refresh_token)
+        or bool(recovery_access_token)
     )
     
     st.markdown("<h2 style='text-align: center; margin-top: 30px; color: #3b82f6;'>🚀 Console Flare Portal</h2>", unsafe_allow_html=True)
