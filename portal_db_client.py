@@ -152,7 +152,13 @@ def reset_password_student(email):
             error_msg = "Please enter a valid email address."
         return {"ok": False, "error": error_msg}
 
-def update_password_after_recovery(new_password, access_token=None, refresh_token=None, code=None):
+def update_password_after_recovery(
+    new_password,
+    access_token=None,
+    refresh_token=None,
+    code=None,
+    token_hash=None,
+):
     """Update a password after the user opens a Supabase recovery email link."""
     client = get_supabase_client()
     if not client:
@@ -163,7 +169,12 @@ def update_password_after_recovery(new_password, access_token=None, refresh_toke
         return {"ok": False, "error": "Password must be at least 6 characters."}
 
     try:
-        if code:
+        if token_hash:
+            verify_otp = getattr(client.auth, "verify_otp", None)
+            if not verify_otp:
+                return {"ok": False, "error": "This Supabase client version does not support recovery token verification."}
+            verify_otp({"token_hash": token_hash, "type": "recovery"})
+        elif code:
             exchange_code_for_session = getattr(client.auth, "exchange_code_for_session", None)
             if not exchange_code_for_session:
                 return {"ok": False, "error": "This Supabase client version does not support recovery code exchange."}

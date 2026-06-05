@@ -154,15 +154,16 @@ def bridge_recovery_hash_to_query_params():
 if st.session_state.user is None:
     supabase_ready = db_client.is_configured()
     bridge_recovery_hash_to_query_params()
-    st.write("DEBUG PARAMS:", dict(st.query_params))
     recovery_code = get_query_param("code")
+    recovery_token_hash = get_query_param("token_hash")
     recovery_access_token = get_query_param("access_token")
     recovery_refresh_token = get_query_param("refresh_token")
     is_recovery = (
         get_query_param("reset") == "1"
         or get_query_param("type") == "recovery"
         or bool(recovery_code)
-        or bool(recovery_access_token)
+        or bool(recovery_token_hash)
+        or bool(recovery_access_token and recovery_refresh_token)
     )
     
     st.markdown("<h2 style='text-align: center; margin-top: 30px; color: #3b82f6;'>🚀 Console Flare Portal</h2>", unsafe_allow_html=True)
@@ -188,6 +189,7 @@ if st.session_state.user is None:
                         access_token=recovery_access_token,
                         refresh_token=recovery_refresh_token,
                         code=recovery_code,
+                        token_hash=recovery_token_hash,
                     )
                     if result.get("error"):
                         st.error(result["error"])
