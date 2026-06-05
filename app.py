@@ -150,6 +150,7 @@ def bridge_recovery_hash_to_query_params():
 if st.session_state.user is None:
     supabase_ready = db_client.is_configured()
     bridge_recovery_hash_to_query_params()
+    st.write("DEBUG PARAMS:", dict(st.query_params))
     recovery_code = get_query_param("code")
     recovery_access_token = get_query_param("access_token")
     recovery_refresh_token = get_query_param("refresh_token")
@@ -177,8 +178,6 @@ if st.session_state.user is None:
                     st.error("Please enter and confirm your new password.")
                 elif new_password != confirm_password:
                     st.error("Passwords do not match.")
-                elif not hasattr(db_client, "update_password_after_recovery"):
-                    st.error("Password reset is not fully deployed yet. Please redeploy the app and try the reset link again.")
                 else:
                     result = db_client.update_password_after_recovery(
                         new_password,
