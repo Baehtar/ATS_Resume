@@ -46,6 +46,34 @@ def is_configured():
     """Check if Supabase is properly configured in secrets or env vars."""
     return get_supabase_client() is not None
 
+def _get_auth_redirect_url():
+    try:
+        redirect_url = st.secrets.get("supabase", {}).get("auth_redirect_url")
+        if redirect_url:
+            return redirect_url.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    redirect_url = os.environ.get("SUPABASE_AUTH_REDIRECT_URL")
+    if redirect_url:
+        return redirect_url.strip()
+    return "https://consoleflare.streamlit.app"
+
+def _get_response_value(response, key):
+    if isinstance(response, dict):
+        return response.get(key)
+    return getattr(response, key, None)
+
+def _get_user_value(user, key):
+    if isinstance(user, dict):
+        return user.get(key)
+    return getattr(user, key, None)
+
+def _is_email_verified(user):
+    return bool(
+        _get_user_value(user, "email_confirmed_at")
+        or _get_user_value(user, "confirmed_at")
+    )
+
 def sign_up_student(email, password, name, batch, course):
     """
     Register a new student with email and password,
@@ -56,11 +84,13 @@ def sign_up_student(email, password, name, batch, course):
         return {"error": "Supabase client is not configured."}
 
     try:
+        redirect_url = _get_auth_redirect_url()
         # Standard Supabase Sign Up with custom metadata options
         response = client.auth.sign_up({
             "email": email,
             "password": password,
             "options": {
+                "email_redirect_to": redirect_url,
                 "data": {
                     "name": name,
                     "batch": batch,
@@ -69,15 +99,19 @@ def sign_up_student(email, password, name, batch, course):
             }
         })
         
-        # In newer versions of Supabase Python library, response could be an object or dictionary.
-        # Let's inspect or normalize the return
-        if hasattr(response, "user") and response.user:
-            return {"user": response.user, "error": None}
-        elif isinstance(response, dict) and "user" in response:
-            return {"user": response["user"], "error": None}
-        else:
-            # If email confirmation is required, the user might be returned inside the session or as created
-            return {"user": getattr(response, "user", response), "error": None}
+        user = _get_response_value(response, "user")
+        session = _get_response_value(response, "session")
+        if user is None:
+            user = response
+
+        email_verified = _is_email_verified(user)
+        return {
+            "user": user,
+            "session": session,
+            "email_verified": email_verified,
+            "confirmation_required": not bool(session) and not email_verified,
+            "error": None,
+        }
             
     except Exception as e:
         # Extract friendly error message
@@ -111,10 +145,12 @@ def sign_in_student(email, password):
         error_msg = str(e)
         if "invalid login credentials" in error_msg.lower() or "invalid credentials" in error_msg.lower():
             error_msg = "Invalid email or password. Please try again."
+        elif "email not confirmed" in error_msg.lower() or "not confirmed" in error_msg.lower():
+            error_msg = "Please verify your email before signing in. Check your inbox for the confirmation link."
         return {"session": None, "user": None, "error": error_msg}
 
 def _get_password_reset_redirect_url():
-    return "https://consoleflare.streamlit.app/?reset=1"
+    return f"{_get_auth_redirect_url()}?reset=1"
 
 def reset_password_student(email):
     """Send a Supabase password reset email for the given student email."""

@@ -134,13 +134,18 @@ def bridge_recovery_hash_to_query_params():
                 const type = params.get("type");
                 const accessToken = params.get("access_token");
                 const refreshToken = params.get("refresh_token");
-                if (type === "recovery" || accessToken) {
+                if (type === "recovery") {
                     const newUrl = new URL(window.parent.location.href);
                     newUrl.hash = "";
                     if (accessToken) newUrl.searchParams.set("access_token", accessToken);
                     if (refreshToken) newUrl.searchParams.set("refresh_token", refreshToken);
                     if (type) newUrl.searchParams.set("type", type);
                     newUrl.searchParams.set("reset", "1");
+                    window.parent.location.replace(newUrl.toString());
+                } else if (type === "signup") {
+                    const newUrl = new URL(window.parent.location.href);
+                    newUrl.hash = "";
+                    newUrl.searchParams.set("verified", "1");
                     window.parent.location.replace(newUrl.toString());
                 }
             }
@@ -225,6 +230,9 @@ if st.session_state.user is None:
             
         auth_tab_in, auth_tab_up = st.tabs(["🔒 Sign In", "📝 Sign Up"])
         
+        if get_query_param("verified") == "1":
+            st.success("Your email is verified. Please sign in to continue.")
+
         with auth_tab_in:
             st.markdown("#### Student Login")
             login_email = st.text_input("Email Address", placeholder="student@email.com", key="login_email")
@@ -275,8 +283,15 @@ if st.session_state.user is None:
                     if res["error"]:
                         st.error(res["error"])
                     else:
-                        st.success("Registration successful! Please sign in using the 'Sign In' tab.")
-                        st.balloons()
+                        if res.get("confirmation_required"):
+                            st.success("Account created. Please check your inbox and confirm your email before signing in.")
+                            st.info("If you do not see the email, check spam or promotions.")
+                        elif res.get("email_verified"):
+                            st.success("Account created and your email is verified. Please sign in using the 'Sign In' tab.")
+                            st.balloons()
+                        else:
+                            st.success("Account created. Please sign in using the 'Sign In' tab.")
+                            st.balloons()
     st.stop()
 # Helper: Convert HTML to PDF bytes
 def compile_pdf(html_content):
