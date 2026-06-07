@@ -715,7 +715,7 @@ with tab_cv:
                 ai_client = st.text_input("Client Name (optional):", value="", key="ai_client",
                                           placeholder="Optional client or project name")
 
-            if st.button("Generate Entry", key="gen_ai_exp"):
+            if st.button("Generate Experience", key="gen_ai_exp"):
                 entry_info = {
                     "company": ai_client or "Generated Project",
                     "role": ai_current_role or st.session_state.resume["personal"].get("headline", ""),
@@ -804,7 +804,7 @@ with tab_cv:
 
             exp_add_col, exp_clear_col = st.columns(2)
             with exp_add_col:
-                if st.button("+ Add Experience Entry", use_container_width=True, key="add_exp"):
+                if st.button("+ Add More Experience", use_container_width=True, key="add_exp"):
                     exp_list.append({"company":"","role":"","location":"","startDate":"","endDate":"","bullets":[""]})
                     st.session_state.resume["experience"] = exp_list
                     st.rerun()
