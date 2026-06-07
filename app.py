@@ -808,10 +808,10 @@ with tab_cv:
                     exp_list.append({"company":"","role":"","location":"","startDate":"","endDate":"","bullets":[""]})
                     st.session_state.resume["experience"] = exp_list
                     st.rerun()
-            with exp_clear_col:
-                if st.button("Remove All Experience Entries", use_container_width=True, key="clear_exp"):
-                    st.session_state.resume["experience"] = []
-                    st.rerun()
+            # with exp_clear_col:
+            #     if st.button("Remove All Experience Entries", use_container_width=True, key="clear_exp"):
+            #         st.session_state.resume["experience"] = []
+            #         st.rerun()
 
         # Education
         with st.expander("🎓 Education", expanded=False):
