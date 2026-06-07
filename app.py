@@ -2,6 +2,7 @@
 import streamlit as st
 import base64
 import json
+from datetime import date, datetime
 from html import escape
 from io import BytesIO
 from weasyprint import HTML
@@ -19,6 +20,69 @@ TEMPLATE_OPTIONS = {
     "graduate": "Graduate / Fresher",
     "executive": "Executive",
 }
+
+
+def parse_resume_date(value):
+    if not value or str(value).strip().lower() == "present":
+        return None
+    value = str(value).strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m", "%b %Y", "%B %Y", "%Y"):
+        try:
+            parsed = datetime.strptime(value, fmt)
+            return parsed.date()
+        except ValueError:
+            pass
+    return None
+
+
+def format_resume_date(value):
+    if isinstance(value, date):
+        return value.isoformat()
+    return value or ""
+
+
+def split_keywords(value):
+    if not value:
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def join_keywords(*groups):
+    merged = []
+    seen = set()
+    for group in groups:
+        items = split_keywords(group) if isinstance(group, str) else (group or [])
+        for item in items:
+            key = item.strip().lower()
+            if key and key not in seen:
+                merged.append(item.strip())
+                seen.add(key)
+    return ", ".join(merged)
+
+
+def get_keyword_options(target_role):
+    roles = ats_analyzer.load_role_keywords()
+    keywords = []
+    for key in ("must_have", "good_to_have"):
+        keywords.extend(roles.get(target_role, {}).get(key, []))
+    return sorted(set(keywords), key=str.lower)
+
+
+def keyword_textbox_with_dropdown(label, value, key_prefix, options, placeholder=""):
+    current = split_keywords(value)
+    selected = st.multiselect(
+        f"{label} presets",
+        options=options,
+        default=[item for item in current if item in options],
+        key=f"{key_prefix}_select",
+    )
+    custom = st.text_input(
+        label,
+        value=", ".join([item for item in current if item not in options]),
+        key=f"{key_prefix}_custom",
+        placeholder=placeholder,
+    )
+    return join_keywords(selected, custom)
 
 
 # ─────────────────────────────────────────────────
@@ -470,7 +534,7 @@ with st.sidebar:
         editor_prefixes = (
             "cv_", "ec_", "el_", "er_", "es_", "ee_", "eb_", "edsc_", "eddg_",
             "edlo_", "eddt_", "edde_", "pn_", "pt_", "pl_", "pd_", "sc_", "sl_",
-            "cn_", "ci_", "cd_",
+            "cn_", "ci_", "cd_", "date_", "kw_",
         )
         for key in list(st.session_state):
             if key.startswith(editor_prefixes):
@@ -630,6 +694,7 @@ with tab_cv:
         with st.expander("💼 Work / Internship Experience", expanded=False):
             st.markdown("#### ✨ AI Experience Generator")
             st.markdown("Provide concise details and click 'Generate Entry' to create ATS-friendly bullets for one experience entry.")
+            keyword_options = get_keyword_options(st.session_state.target_role)
             ai_col1, ai_col2 = st.columns(2)
             with ai_col1:
                 ai_current_role = st.text_input("Current Role:", value="", key="ai_current_role")
@@ -639,8 +704,14 @@ with tab_cv:
             with ai_col2:
                 ai_daily = st.text_area("Daily Activities (short):", value="", key="ai_daily", height=80,
                                         placeholder="What you do day-to-day (brief)")
-                ai_tools = st.text_input("Tools I Actually Use:", value="", key="ai_tools",
-                                         placeholder="e.g. PySpark, Databricks, Azure Data Factory")
+                ai_tools = keyword_textbox_with_dropdown(
+                    "Tools I Actually Use:",
+                    st.session_state.get("kw_ai_tools_value", ""),
+                    "kw_ai_tools",
+                    keyword_options,
+                    "e.g. PySpark, Databricks, Azure Data Factory",
+                )
+                st.session_state["kw_ai_tools_value"] = ai_tools
                 ai_client = st.text_input("Client Name (optional):", value="", key="ai_client",
                                           placeholder="Optional client or project name")
 
@@ -678,10 +749,6 @@ with tab_cv:
                     st.rerun()
 
             exp_list = st.session_state.resume.get("experience", [])
-            if st.button("+ Add Experience Entry", use_container_width=True, key="add_exp"):
-                exp_list.append({"company":"","role":"","location":"","startDate":"","endDate":"","bullets":[""]})
-                st.session_state.resume["experience"] = exp_list
-                st.rerun()
             for i, exp in enumerate(exp_list):
                 st.markdown(f"**Entry {i+1}**")
                 c1, c2 = st.columns(2)
@@ -695,9 +762,27 @@ with tab_cv:
                 with c4:
                     d1, d2 = st.columns(2)
                     with d1:
-                        exp["startDate"] = st.text_input("Start", value=exp.get("startDate",""), key=f"es_{i}", placeholder="YYYY-MM")
+                        start_value = st.date_input(
+                            "Start",
+                            value=parse_resume_date(exp.get("startDate")),
+                            key=f"date_exp_start_{i}",
+                        )
+                        exp["startDate"] = format_resume_date(start_value)
                     with d2:
-                        exp["endDate"] = st.text_input("End", value=exp.get("endDate",""), key=f"ee_{i}", placeholder="Present")
+                        is_current = st.checkbox(
+                            "Present",
+                            value=exp.get("endDate", "").strip().lower() == "present",
+                            key=f"date_exp_present_{i}",
+                        )
+                        if is_current:
+                            exp["endDate"] = "Present"
+                        else:
+                            end_value = st.date_input(
+                                "End",
+                                value=parse_resume_date(exp.get("endDate")),
+                                key=f"date_exp_end_{i}",
+                            )
+                            exp["endDate"] = format_resume_date(end_value)
                 st.markdown("*Bullet points (use action verbs + metrics)*")
                 bullets = exp.get("bullets", [])
                 for bi, b in enumerate(bullets):
@@ -717,13 +802,20 @@ with tab_cv:
                         exp_list.pop(i); st.rerun()
                 st.markdown("---")
 
+            exp_add_col, exp_clear_col = st.columns(2)
+            with exp_add_col:
+                if st.button("+ Add Experience Entry", use_container_width=True, key="add_exp"):
+                    exp_list.append({"company":"","role":"","location":"","startDate":"","endDate":"","bullets":[""]})
+                    st.session_state.resume["experience"] = exp_list
+                    st.rerun()
+            with exp_clear_col:
+                if st.button("Remove All Experience Entries", use_container_width=True, key="clear_exp"):
+                    st.session_state.resume["experience"] = []
+                    st.rerun()
+
         # Education
         with st.expander("🎓 Education", expanded=False):
             edu_list = st.session_state.resume.get("education", [])
-            if st.button("+ Add Education", use_container_width=True, key="add_edu"):
-                edu_list.append({"school":"","degree":"","location":"","date":"","details":""})
-                st.session_state.resume["education"] = edu_list
-                st.rerun()
             for i, edu in enumerate(edu_list):
                 c1, c2 = st.columns(2)
                 with c1:
@@ -734,66 +826,122 @@ with tab_cv:
                 with c3:
                     edu["location"] = st.text_input("Location", value=edu.get("location",""), key=f"edlo_{i}")
                 with c4:
-                    edu["date"] = st.text_input("Dates", value=edu.get("date",""), key=f"eddt_{i}")
+                    edu_date_parts = str(edu.get("date", "")).split(" to ")
+                    edu_start = st.date_input(
+                        "Start Date",
+                        value=parse_resume_date(edu_date_parts[0] if edu_date_parts else ""),
+                        key=f"date_edu_start_{i}",
+                    )
+                    edu_end = st.date_input(
+                        "End Date",
+                        value=parse_resume_date(edu_date_parts[-1] if edu_date_parts else ""),
+                        key=f"date_edu_end_{i}",
+                    )
+                    edu["date"] = f"{format_resume_date(edu_start)} to {format_resume_date(edu_end)}"
                 edu["details"] = st.text_input("Details (GPA, Honors)", value=edu.get("details",""), key=f"edde_{i}")
                 if st.button("🗑 Delete", key=f"deled_{i}"):
                     edu_list.pop(i); st.rerun()
                 st.markdown("---")
 
+            if st.button("+ Add Education", use_container_width=True, key="add_edu"):
+                edu_list.append({"school":"","degree":"","location":"","date":"","details":""})
+                st.session_state.resume["education"] = edu_list
+                st.rerun()
+
         # Projects
         with st.expander("💻 Projects", expanded=False):
             proj_list = st.session_state.resume.get("projects", [])
-            if st.button("+ Add Project", use_container_width=True, key="add_proj"):
-                proj_list.append({"name":"","tech":"","link":"","description":""})
-                st.session_state.resume["projects"] = proj_list
-                st.rerun()
             for i, proj in enumerate(proj_list):
                 c1, c2 = st.columns(2)
                 with c1:
                     proj["name"] = st.text_input("Project Name", value=proj.get("name",""), key=f"pn_{i}")
                 with c2:
-                    proj["tech"] = st.text_input("Tech Stack", value=proj.get("tech",""), key=f"pt_{i}")
+                    proj["tech"] = keyword_textbox_with_dropdown(
+                        "Tech Stack",
+                        proj.get("tech", ""),
+                        f"kw_project_tech_{i}",
+                        keyword_options,
+                        "e.g. Python, SQL, Power BI",
+                    )
                 proj["link"] = st.text_input("Link", value=proj.get("link",""), key=f"pl_{i}")
                 proj["description"] = st.text_area("Description", value=proj.get("description",""), key=f"pd_{i}", height=70)
                 if st.button("🗑 Delete", key=f"delpr_{i}"):
                     proj_list.pop(i); st.rerun()
                 st.markdown("---")
 
+            if st.button("+ Add Project", use_container_width=True, key="add_proj"):
+                proj_list.append({"name":"","tech":"","link":"","description":""})
+                st.session_state.resume["projects"] = proj_list
+                st.rerun()
+
         # Skills
         with st.expander("🛠 Skills", expanded=False):
             skills_list = st.session_state.resume.get("skills", [])
-            if st.button("+ Add Skill Group", use_container_width=True, key="add_sk"):
-                skills_list.append({"category":"","list":""})
-                st.session_state.resume["skills"] = skills_list
-                st.rerun()
             for i, s in enumerate(skills_list):
                 s["category"] = st.text_input("Group Name", value=s.get("category",""), key=f"sc_{i}")
-                s["list"] = st.text_input("Skills (comma separated)", value=s.get("list",""), key=f"sl_{i}")
+                s["list"] = keyword_textbox_with_dropdown(
+                    "Skills",
+                    s.get("list", ""),
+                    f"kw_skills_{i}",
+                    keyword_options,
+                    "Add custom skills separated by commas",
+                )
                 if st.button("🗑 Delete", key=f"delsk_{i}"):
                     skills_list.pop(i); st.rerun()
                 st.markdown("---")
 
+            if st.button("+ Add Skill Group", use_container_width=True, key="add_sk"):
+                skills_list.append({"category":"","list":""})
+                st.session_state.resume["skills"] = skills_list
+                st.rerun()
+
         # Certifications
         with st.expander("📜 Certifications", expanded=False):
             cert_list = st.session_state.resume.get("certifications", [])
-            if st.button("+ Add Certification", use_container_width=True, key="add_cert"):
-                cert_list.append({"name":"","issuer":"","date":""})
-                st.session_state.resume["certifications"] = cert_list
-                st.rerun()
             for i, c in enumerate(cert_list):
                 c["name"] = st.text_input("Title", value=c.get("name",""), key=f"cn_{i}")
                 cc1, cc2 = st.columns(2)
                 with cc1:
                     c["issuer"] = st.text_input("Issuer", value=c.get("issuer",""), key=f"ci_{i}")
                 with cc2:
-                    c["date"] = st.text_input("Date", value=c.get("date",""), key=f"cd_{i}")
+                    cert_date = st.date_input(
+                        "Date",
+                        value=parse_resume_date(c.get("date")),
+                        key=f"date_cert_{i}",
+                    )
+                    c["date"] = format_resume_date(cert_date)
                 if st.button("🗑 Delete", key=f"delce_{i}"):
                     cert_list.pop(i); st.rerun()
                 st.markdown("---")
 
     # ── RIGHT: ATS Score + Preview ──
+            if st.button("+ Add Certification", use_container_width=True, key="add_cert"):
+                cert_list.append({"name":"","issuer":"","date":""})
+                st.session_state.resume["certifications"] = cert_list
+                st.rerun()
+
+        st.markdown("---")
+        bottom_template_id = st.session_state.get("tmpl_select", "modern")
+        if bottom_template_id not in TEMPLATE_OPTIONS:
+            bottom_template_id = "modern"
+        bottom_html = resume_templates.generate_resume_html(st.session_state.resume, bottom_template_id)
+        bottom_pdf_data = compile_pdf(bottom_html)
+        if bottom_pdf_data:
+            safe_name = (st.session_state.resume["personal"].get("fullName", "resume") or "resume").lower().replace(" ","_")
+            st.download_button(
+                "Download Resume PDF",
+                data=bottom_pdf_data,
+                file_name=f"{safe_name}_resume.pdf",
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True,
+                key="bottom_pdf_download",
+            )
+        else:
+            st.error("Error generating PDF.")
+
     with col_right:
-        sub_score, sub_preview = st.tabs(["🎯 ATS Keyword Audit", "📄 Preview & Download"])
+        sub_preview, sub_score = st.tabs(["📄 Preview & Download", "🎯 ATS Keyword Audit"])
 
         with sub_score:
             report = ats_analyzer.analyze_resume(st.session_state.resume, st.session_state.target_role)
