@@ -172,20 +172,58 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def render_sidebar_toggle():
-    """Inject an always-visible floating button that expands/collapses the sidebar.
+def render_sidebar_toggle(force_open=False):
+    """Inject an always-visible floating ☰ button that expands/collapses the sidebar.
 
-    This is version-proof: it tries to click Streamlit's native control under any
-    known test-id, and if that fails it directly forces the sidebar <section>
-    visible. The button is injected into the parent document so it stays fixed
-    on screen even though components run inside an iframe.
+    When force_open=True (right after login), also clears Streamlit's localStorage
+    sidebar state and programmatically expands the sidebar so it is always visible
+    on first render after login.
     """
+    force_open_js = "true" if force_open else "false"
     st.components.v1.html(
-        """
+        f"""
         <script>
-        (function() {
+        (function() {{
             const doc = window.parent.document;
-            if (doc.getElementById("cf-sidebar-toggle")) { return; }
+
+            // ── Force open on login ──────────────────────────────────────
+            function expandSidebar() {{
+                // Clear any persisted collapsed state from localStorage
+                try {{
+                    for (const key of Object.keys(localStorage)) {{
+                        if (key.toLowerCase().includes("sidebar")) {{
+                            localStorage.removeItem(key);
+                        }}
+                    }}
+                }} catch(e) {{}}
+                // Try clicking the native expand control
+                const expandSelectors = [
+                    '[data-testid="stSidebarCollapsedControl"] button',
+                    '[data-testid="stSidebarCollapsedControl"]',
+                    '[data-testid="collapsedControl"] button',
+                    '[data-testid="collapsedControl"]'
+                ];
+                for (const sel of expandSelectors) {{
+                    const el = doc.querySelector(sel);
+                    if (el) {{ el.click(); return; }}
+                }}
+                // Fallback: directly force the sidebar element visible
+                const sb = doc.querySelector('section[data-testid="stSidebar"]');
+                if (sb) {{
+                    sb.style.removeProperty("display");
+                    sb.style.visibility = "visible";
+                    sb.style.transform = "none";
+                    sb.style.marginLeft = "0";
+                    sb.setAttribute("aria-expanded", "true");
+                }}
+            }}
+
+            if ({force_open_js}) {{
+                setTimeout(expandSidebar, 300);
+            }}
+
+            // ── Floating toggle button ───────────────────────────────────
+            if (doc.getElementById("cf-sidebar-toggle")) {{ return; }}
 
             const btn = doc.createElement("button");
             btn.id = "cf-sidebar-toggle";
@@ -198,65 +236,32 @@ def render_sidebar_toggle():
                 "cursor:pointer", "box-shadow:0 2px 8px rgba(0,0,0,0.25)"
             ].join(";");
 
-            function findSidebar() {
-                return doc.querySelector('section[data-testid="stSidebar"]');
-            }
+            function isCollapsed() {{
+                const sb = doc.querySelector('section[data-testid="stSidebar"]');
+                if (!sb) return true;
+                const rect = sb.getBoundingClientRect();
+                return rect.width < 50 || rect.left < -50;
+            }}
 
-            function expandViaControl() {
-                const expandSelectors = [
-                    '[data-testid="stSidebarCollapsedControl"] button',
-                    '[data-testid="stSidebarCollapsedControl"]',
-                    '[data-testid="collapsedControl"] button',
-                    '[data-testid="collapsedControl"]'
-                ];
-                for (const sel of expandSelectors) {
-                    const el = doc.querySelector(sel);
-                    if (el) { el.click(); return true; }
-                }
-                return false;
-            }
-
-            function collapseViaControl() {
+            function collapseSidebar() {{
                 const collapseSelectors = [
                     '[data-testid="stSidebarCollapseButton"] button',
                     '[data-testid="stSidebarCollapseButton"]',
                     'section[data-testid="stSidebar"] button[kind="header"]'
                 ];
-                for (const sel of collapseSelectors) {
+                for (const sel of collapseSelectors) {{
                     const el = doc.querySelector(sel);
-                    if (el) { el.click(); return true; }
-                }
-                return false;
-            }
+                    if (el) {{ el.click(); return; }}
+                }}
+            }}
 
-            function forceShow() {
-                const sb = findSidebar();
-                if (sb) {
-                    sb.style.removeProperty("display");
-                    sb.style.visibility = "visible";
-                    sb.style.transform = "none";
-                    sb.style.marginLeft = "0";
-                    sb.setAttribute("aria-expanded", "true");
-                }
-            }
-
-            btn.onclick = function() {
-                const sb = findSidebar();
-                // Determine current state: collapsed if width is ~0 or transformed off-screen
-                let collapsed = true;
-                if (sb) {
-                    const rect = sb.getBoundingClientRect();
-                    collapsed = rect.width < 50 || rect.left < -50;
-                }
-                if (collapsed) {
-                    if (!expandViaControl()) { forceShow(); }
-                } else {
-                    collapseViaControl();
-                }
-            };
+            btn.onclick = function() {{
+                if (isCollapsed()) {{ expandSidebar(); }}
+                else {{ collapseSidebar(); }}
+            }};
 
             doc.body.appendChild(btn);
-        })();
+        }})();
         </script>
         """,
         height=0,
@@ -399,6 +404,7 @@ if st.session_state.user is None:
                         "course": "Data Engineer"
                     }
                 }
+                st.session_state["force_sidebar_open"] = True
                 st.toast("Entered Demo Mode!", icon="🔓")
                 st.rerun()
             st.stop()
@@ -434,6 +440,7 @@ if st.session_state.user is None:
                     else:
                         st.session_state.user = res["user"]
                         st.session_state.resume_loaded_from_db = False
+                        st.session_state["force_sidebar_open"] = True
                         st.toast("Logged in successfully!", icon="👋")
                         st.rerun()
                         
@@ -622,7 +629,8 @@ if role == "admin":
 # ─────────────────────────────────────────────────
 # 3. SIDEBAR — BRANDING & GLOBAL CONTROLS
 # ─────────────────────────────────────────────────
-render_sidebar_toggle()
+_force_open = st.session_state.pop("force_sidebar_open", False)
+render_sidebar_toggle(force_open=_force_open)
 with st.sidebar:
     st.markdown("## 🚀 Console Flare")
     st.caption("Your launchpad to data science careers")
