@@ -102,24 +102,12 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Hide only the toolbar actions, deploy button, and footer — leave header and sidebar toggle intact */
+    /* Hide toolbar, deploy menu, footer — do NOT touch the header or sidebar toggle */
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
     #MainMenu { display: none !important; }
     footer { display: none !important; }
-
-    /* Keep the header bar and the sidebar expand/collapse toggle visible and clickable */
-    header[data-testid="stHeader"] { display: flex !important; visibility: visible !important; background: transparent; }
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="baseButton-headerNoPadding"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 999999 !important;
-    }
 
     /* Custom badge styles */
     .kw-must-matched {
@@ -170,102 +158,6 @@ st.markdown("""
     .difficulty-hard { color:#ef4444; font-weight:600; }
 </style>
 """, unsafe_allow_html=True)
-
-
-def render_sidebar_toggle(force_open=False):
-    """Inject an always-visible floating ☰ button that expands/collapses the sidebar.
-
-    When force_open=True (right after login), also clears Streamlit's localStorage
-    sidebar state and programmatically expands the sidebar so it is always visible
-    on first render after login.
-    """
-    force_open_js = "true" if force_open else "false"
-    st.components.v1.html(
-        f"""
-        <script>
-        (function() {{
-            const doc = window.parent.document;
-
-            // ── Force open on login ──────────────────────────────────────
-            function expandSidebar() {{
-                // Clear any persisted collapsed state from localStorage
-                try {{
-                    for (const key of Object.keys(localStorage)) {{
-                        if (key.toLowerCase().includes("sidebar")) {{
-                            localStorage.removeItem(key);
-                        }}
-                    }}
-                }} catch(e) {{}}
-                // Try clicking the native expand control
-                const expandSelectors = [
-                    '[data-testid="stSidebarCollapsedControl"] button',
-                    '[data-testid="stSidebarCollapsedControl"]',
-                    '[data-testid="collapsedControl"] button',
-                    '[data-testid="collapsedControl"]'
-                ];
-                for (const sel of expandSelectors) {{
-                    const el = doc.querySelector(sel);
-                    if (el) {{ el.click(); return; }}
-                }}
-                // Fallback: directly force the sidebar element visible
-                const sb = doc.querySelector('section[data-testid="stSidebar"]');
-                if (sb) {{
-                    sb.style.removeProperty("display");
-                    sb.style.visibility = "visible";
-                    sb.style.transform = "none";
-                    sb.style.marginLeft = "0";
-                    sb.setAttribute("aria-expanded", "true");
-                }}
-            }}
-
-            if ({force_open_js}) {{
-                setTimeout(expandSidebar, 300);
-            }}
-
-            // ── Floating toggle button ───────────────────────────────────
-            if (doc.getElementById("cf-sidebar-toggle")) {{ return; }}
-
-            const btn = doc.createElement("button");
-            btn.id = "cf-sidebar-toggle";
-            btn.innerHTML = "☰";
-            btn.title = "Show / hide menu";
-            btn.style.cssText = [
-                "position:fixed", "top:12px", "left:12px", "z-index:1000000",
-                "width:40px", "height:40px", "border-radius:8px", "border:none",
-                "background:#3b82f6", "color:#fff", "font-size:18px",
-                "cursor:pointer", "box-shadow:0 2px 8px rgba(0,0,0,0.25)"
-            ].join(";");
-
-            function isCollapsed() {{
-                const sb = doc.querySelector('section[data-testid="stSidebar"]');
-                if (!sb) return true;
-                const rect = sb.getBoundingClientRect();
-                return rect.width < 50 || rect.left < -50;
-            }}
-
-            function collapseSidebar() {{
-                const collapseSelectors = [
-                    '[data-testid="stSidebarCollapseButton"] button',
-                    '[data-testid="stSidebarCollapseButton"]',
-                    'section[data-testid="stSidebar"] button[kind="header"]'
-                ];
-                for (const sel of collapseSelectors) {{
-                    const el = doc.querySelector(sel);
-                    if (el) {{ el.click(); return; }}
-                }}
-            }}
-
-            btn.onclick = function() {{
-                if (isCollapsed()) {{ expandSidebar(); }}
-                else {{ collapseSidebar(); }}
-            }};
-
-            doc.body.appendChild(btn);
-        }})();
-        </script>
-        """,
-        height=0,
-    )
 
 
 # ─────────────────────────────────────────────────
@@ -404,7 +296,6 @@ if st.session_state.user is None:
                         "course": "Data Engineer"
                     }
                 }
-                st.session_state["force_sidebar_open"] = True
                 st.toast("Entered Demo Mode!", icon="🔓")
                 st.rerun()
             st.stop()
@@ -440,7 +331,6 @@ if st.session_state.user is None:
                     else:
                         st.session_state.user = res["user"]
                         st.session_state.resume_loaded_from_db = False
-                        st.session_state["force_sidebar_open"] = True
                         st.toast("Logged in successfully!", icon="👋")
                         st.rerun()
                         
@@ -629,8 +519,6 @@ if role == "admin":
 # ─────────────────────────────────────────────────
 # 3. SIDEBAR — BRANDING & GLOBAL CONTROLS
 # ─────────────────────────────────────────────────
-_force_open = st.session_state.pop("force_sidebar_open", False)
-render_sidebar_toggle(force_open=_force_open)
 with st.sidebar:
     st.markdown("## 🚀 Console Flare")
     st.caption("Your launchpad to data science careers")
