@@ -110,6 +110,18 @@ st.markdown("""
     #MainMenu { display: none !important; }
     footer { display: none !important; }
 
+    /* Keep the header bar and the sidebar expand/collapse toggle visible and clickable */
+    header[data-testid="stHeader"] { display: flex !important; visibility: visible !important; background: transparent; }
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="baseButton-headerNoPadding"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 999999 !important;
+    }
+
     /* Custom badge styles */
     .kw-must-matched {
         display:inline-block; background:rgba(16,185,129,0.12); color:#10b981;
