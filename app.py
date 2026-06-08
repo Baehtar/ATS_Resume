@@ -103,12 +103,12 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Hide Streamlit toolbar items but keep the sidebar toggle visible */
-    header[data-testid="stHeader"] { visibility: hidden; }
-    /* Re-show the sidebar collapse/expand button */
-    [data-testid="collapsedControl"] { visibility: visible !important; }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* Hide only the toolbar actions, deploy button, and footer — leave header and sidebar toggle intact */
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    footer { display: none !important; }
 
     /* Custom badge styles */
     .kw-must-matched {
