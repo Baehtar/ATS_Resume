@@ -106,6 +106,8 @@ st.markdown("""
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="stHeader"] { background: transparent !important; }
+[data-testid="collapsedControl"] { display: flex !important; visibility: visible !important; }
     #MainMenu { display: none !important; }
     footer { display: none !important; }
 
