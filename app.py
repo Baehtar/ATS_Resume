@@ -422,7 +422,7 @@ def show_admin_dashboard():
     # Fetch all profiles
     try:
         profiles = client.table("profiles").select("*").execute()
-        students = [p for p in profiles.data if p.get("role") == "student"]
+        students = [p for p in (profiles.data or []) if p.get("role") == "student"]
     except Exception as e:
         st.error(f"Could not fetch students: {e}")
         return
@@ -633,6 +633,7 @@ tab_cv, tab_jobs, tab_prep = st.tabs([
 # TAB 1: MY CV — Resume Builder + ATS Optimizer
 # ═══════════════════════════════════════════════════
 with tab_cv:
+    # Compute once per render and reuse in both the top banner and the right-panel audit
     report = ats_analyzer.analyze_resume(st.session_state.resume, st.session_state.target_role)
     score = report.get("score", 0)
     st.markdown("### 🎯 ATS Optimization Score")
@@ -743,7 +744,7 @@ with tab_cv:
                     "details": ai_daily,
                     "tools": ai_tools,
                     "years": ai_years or "",
-                    "target_role": "data_engineer"
+                    "target_role": st.session_state.target_role  # Fix: was hardcoded to "data_engineer"
                 }
                 with st.spinner("Generating entry bullets via AI..."):
                     try:
@@ -934,11 +935,13 @@ with tab_cv:
                     cert_list.pop(i); st.rerun()
                 st.markdown("---")
 
-    # ── RIGHT: ATS Score + Preview ──
+            # Fix: button was outside the expander block (in wrong column)
             if st.button("+ Add Certification", use_container_width=True, key="add_cert"):
                 cert_list.append({"name":"","issuer":"","date":""})
                 st.session_state.resume["certifications"] = cert_list
                 st.rerun()
+
+    # ── RIGHT: ATS Score + Preview ──
 
         st.markdown("---")
         bottom_template_id = st.session_state.get("tmpl_select", "modern")
@@ -964,7 +967,7 @@ with tab_cv:
         sub_preview, sub_score = st.tabs(["📄 Preview & Download", "🎯 ATS Keyword Audit"])
 
         with sub_score:
-            report = ats_analyzer.analyze_resume(st.session_state.resume, st.session_state.target_role)
+            # report already computed once at the top of tab_cv — reused here
             score = report["score"]
 
             # Score display

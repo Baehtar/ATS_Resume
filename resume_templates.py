@@ -1,4 +1,20 @@
 # resume_templates.py - HTML layout templates and print stylesheet configurations
+from html import escape as html_escape
+
+
+def _safe(value):
+    """HTML-escape a resume field value to prevent XSS in the preview iframe."""
+    return html_escape(str(value)) if value else ""
+
+
+def _normalize_url(link):
+    """Ensure a link has exactly one https:// prefix."""
+    if not link:
+        return ""
+    link = link.strip()
+    if link.startswith("http://") or link.startswith("https://"):
+        return link
+    return f"https://{link}"
 
 def get_default_sample():
     return {
@@ -242,17 +258,17 @@ def generate_resume_html(data, template_id, is_print=False):
     # Format contact items
     contact_parts = []
     if personal.get("phone"):
-        contact_parts.append(personal["phone"])
+        contact_parts.append(_safe(personal["phone"]))
     if personal.get("email"):
-        contact_parts.append(f'<a href="mailto:{personal["email"]}">{personal["email"]}</a>')
+        contact_parts.append(f'<a href="mailto:{_safe(personal["email"])}">{_safe(personal["email"])}</a>')
     if personal.get("location"):
-        contact_parts.append(personal["location"])
+        contact_parts.append(_safe(personal["location"]))
     if personal.get("linkedin"):
-        contact_parts.append(personal["linkedin"])
+        contact_parts.append(_safe(personal["linkedin"]))
     if personal.get("github"):
-        contact_parts.append(personal["github"])
+        contact_parts.append(_safe(personal["github"]))
     if personal.get("website"):
-        contact_parts.append(personal["website"])
+        contact_parts.append(_safe(personal["website"]))
         
     contact_html = " | ".join(contact_parts)
 
@@ -262,19 +278,19 @@ def generate_resume_html(data, template_id, is_print=False):
         exp_items = []
         for exp in experience:
             bullets = exp.get("bullets", [])
-            bullets_html = "".join([f"<li>{bullet}</li>" for bullet in bullets if bullet.strip()])
+            bullets_html = "".join([f"<li>{_safe(bullet)}</li>" for bullet in bullets if bullet.strip()])
             bullets_list = f'<ul class="resume-bullets">{bullets_html}</ul>' if bullets_html else ""
             
             exp_items.append(f"""
                 <div class="resume-item">
                     <table class="item-table">
                         <tr>
-                            <td class="company-name"><strong>{exp.get('company', '')}</strong></td>
-                            <td class="item-date" align="right">{exp.get('startDate', '')} – {exp.get('endDate', '')}</td>
+                            <td class="company-name"><strong>{_safe(exp.get('company', ''))}</strong></td>
+                            <td class="item-date" align="right">{_safe(exp.get('startDate', ''))} – {_safe(exp.get('endDate', ''))}</td>
                         </tr>
                         <tr>
-                            <td class="role-title"><em>{exp.get('role', '')}</em></td>
-                            <td class="item-location" align="right">{exp.get('location', '')}</td>
+                            <td class="role-title"><em>{_safe(exp.get('role', ''))}</em></td>
+                            <td class="item-location" align="right">{_safe(exp.get('location', ''))}</td>
                         </tr>
                     </table>
                     {bullets_list}
@@ -293,17 +309,17 @@ def generate_resume_html(data, template_id, is_print=False):
     if education:
         edu_items = []
         for edu in education:
-            details_html = f'<p class="edu-details">{edu.get("details", "")}</p>' if edu.get("details") else ""
+            details_html = f'<p class="edu-details">{_safe(edu.get("details", ""))}</p>' if edu.get("details") else ""
             edu_items.append(f"""
                 <div class="resume-item">
                     <table class="item-table">
                         <tr>
-                            <td class="school-name"><strong>{edu.get('school', '')}</strong></td>
-                            <td class="item-date" align="right">{edu.get('date', '')}</td>
+                            <td class="school-name"><strong>{_safe(edu.get('school', ''))}</strong></td>
+                            <td class="item-date" align="right">{_safe(edu.get('date', ''))}</td>
                         </tr>
                         <tr>
-                            <td class="degree-title"><em>{edu.get('degree', '')}</em></td>
-                            <td class="item-location" align="right">{edu.get('location', '')}</td>
+                            <td class="degree-title"><em>{_safe(edu.get('degree', ''))}</em></td>
+                            <td class="item-location" align="right">{_safe(edu.get('location', ''))}</td>
                         </tr>
                     </table>
                     {details_html}
@@ -321,16 +337,21 @@ def generate_resume_html(data, template_id, is_print=False):
     if projects:
         proj_items = []
         for proj in projects:
-            tech_span = f'<span class="project-tech">[{proj.get("tech", "")}]</span>' if proj.get("tech") else ""
+            tech_span = f'<span class="project-tech">[{_safe(proj.get("tech", ""))}]</span>' if proj.get("tech") else ""
+            raw_link = proj.get("link", "")
+            link_html = ""
+            if raw_link:
+                normalized = _normalize_url(raw_link)
+                link_html = f"<a href='{normalized}' target='_blank'>{_safe(raw_link)}</a>"
             proj_items.append(f"""
                 <div class="resume-item">
                     <table class="item-table">
                         <tr>
-                            <td class="project-name"><strong>{proj.get('name', '')}</strong> {tech_span}</td>
-                            <td class="project-link" align="right">{f"<a href='https://{proj.get('link')}' target='_blank'>{proj.get('link')}</a>" if proj.get('link') else ""}</td>
+                            <td class="project-name"><strong>{_safe(proj.get('name', ''))}</strong> {tech_span}</td>
+                            <td class="project-link" align="right">{link_html}</td>
                         </tr>
                     </table>
-                    <p class="project-desc">{proj.get('description', '')}</p>
+                    <p class="project-desc">{_safe(proj.get('description', ''))}</p>
                 </div>
             """)
         projects_html = f"""
@@ -348,7 +369,7 @@ def generate_resume_html(data, template_id, is_print=False):
         for s in active_skills:
             skill_rows.append(f"""
                 <div class="skill-category-row">
-                    <strong>{s.get('category')}:</strong> {s.get('list')}
+                    <strong>{_safe(s.get('category'))}:</strong> {_safe(s.get('list'))}
                 </div>
             """)
         skills_html = f"""
@@ -369,8 +390,8 @@ def generate_resume_html(data, template_id, is_print=False):
                 <div class="cert-row">
                     <table class="item-table">
                         <tr>
-                            <td><strong>{cert.get('name', '')}</strong> – {cert.get('issuer', '')}</td>
-                            <td align="right" class="cert-date">{cert.get('date', '')}</td>
+                            <td><strong>{_safe(cert.get('name', ''))}</strong> – {_safe(cert.get('issuer', ''))}</td>
+                            <td align="right" class="cert-date">{_safe(cert.get('date', ''))}</td>
                         </tr>
                     </table>
                 </div>
@@ -390,7 +411,7 @@ def generate_resume_html(data, template_id, is_print=False):
         summary_html = f"""
             <div class="resume-section">
                 <h2 class="section-title">PROFESSIONAL SUMMARY</h2>
-                <p class="summary-text">{summary}</p>
+                <p class="summary-text">{_safe(summary)}</p>
             </div>
         """
 
@@ -436,7 +457,7 @@ def generate_resume_html(data, template_id, is_print=False):
     header_alignment = layout["header_alignment"]
     sections_html = "".join(layout["sections"])
     headline_html = (
-        f'<div class="professional-headline">{personal.get("headline", "")}</div>'
+        f'<div class="professional-headline">{_safe(personal.get("headline", ""))}</div>'
         if personal.get("headline")
         else ""
     )
@@ -563,7 +584,7 @@ def generate_resume_html(data, template_id, is_print=False):
     </head>
     <body class="layout-{template_id}">
         <div class="resume-header">
-            <h1 class="user-name">{personal.get("fullName") or "Your Name"}</h1>
+            <h1 class="user-name">{_safe(personal.get("fullName")) or "Your Name"}</h1>
             {headline_html}
             <div class="contact-info">
                 {contact_html}

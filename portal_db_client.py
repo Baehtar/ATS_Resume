@@ -9,14 +9,12 @@ try:
 except ImportError:
     SUPABASE_IMPORTED = False
 
-_client = None
+# Keyed by (url, key) so if config ever changes the client is re-created,
+# rather than a bare module-level global shared across all sessions.
+_client_cache: dict = {}
 
 def get_supabase_client():
     """Initialize and return the Supabase client if configured."""
-    global _client
-    if _client is not None:
-        return _client
-
     if not SUPABASE_IMPORTED:
         return None
 
@@ -30,17 +28,24 @@ def get_supabase_client():
     if not key:
         key = os.environ.get("SUPABASE_KEY")
 
-    if url and key:
-        try:
-            # Strip whitespace/quotes
-            url = url.strip().strip('"').strip("'")
-            key = key.strip().strip('"').strip("'")
-            _client = create_client(url, key)
-            return _client
-        except Exception as e:
-            st.error(f"Error initializing Supabase client: {e}")
-            return None
-    return None
+    if not (url and key):
+        return None
+
+    # Strip whitespace/quotes
+    url = url.strip().strip('"').strip("'")
+    key = key.strip().strip('"').strip("'")
+
+    cache_key = (url, key)
+    if cache_key in _client_cache:
+        return _client_cache[cache_key]
+
+    try:
+        client = create_client(url, key)
+        _client_cache[cache_key] = client
+        return client
+    except Exception as e:
+        st.error(f"Error initializing Supabase client: {e}")
+        return None
 
 def is_configured():
     """Check if Supabase is properly configured in secrets or env vars."""

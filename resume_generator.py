@@ -4,7 +4,7 @@ Generate ATS-friendly Data Engineering experience using an LLM API with a safe f
 """
 import os
 import json
-import random
+import re
 
 def _get_openai_key():
     """Try Streamlit secrets first, then environment variables."""
@@ -208,30 +208,37 @@ def _parse_openai_json(raw_text):
 
 def _fallback_generation(user_info):
     """A conservative fallback that turns user-provided activities and tools into bullets."""
-    verbs = ["engineered","designed","implemented","optimized","automated","orchestrated","built","developed","streamlined","deployed"]
-    domain = user_info.get("domain") or "" 
+    verbs = ["Engineered","Designed","Implemented","Optimized","Automated","Orchestrated","Built","Developed","Streamlined","Deployed"]
+    domain = user_info.get("domain") or ""
     tools = user_info.get("tools") or ""
     daily = user_info.get("daily_activities") or ""
     client = user_info.get("client") or ""
 
+    primary_tool = tools.split(",")[0].strip() if tools else "PySpark"
+    client_ctx = f" for {client.strip()}" if client.strip() else ""
+
     bullets = []
-    fragments = [f.strip() for f in daily.split(".") if f.strip()]
+    # Split on periods or newlines, keep only non-trivial fragments
+    fragments = [f.strip(" .\n") for f in re.split(r'[.\n]+', daily) if f.strip(" .\n")]
     for i, frag in enumerate(fragments[:4]):
-        verb = random.choice(verbs)
-        tech = tools.split(",")[0] if tools else ""
-        suffix = f" using {tech}" if tech else ""
-        ctx = f" for {client}" if client else ""
-        sentence = f"{verb.capitalize()} {frag.strip().rstrip('.')} {suffix}{ctx}."
+        verb = verbs[i % len(verbs)]
+        # Ensure the fragment doesn't start with a lowercase verb that duplicates our prefix
+        clean_frag = frag[0].lower() + frag[1:] if frag else frag
+        sentence = f"{verb} {clean_frag} using {primary_tool}{client_ctx}."
         bullets.append(sentence)
 
-    # If not enough bullets, add generic ones
+    # If not enough bullets, add generic data-focused ones
+    generic = [
+        f"Designed and maintained data pipelines using {primary_tool} to support {domain or 'business'} analytics.",
+        f"Automated ETL workflows with {primary_tool}, reducing manual processing time significantly.",
+        f"Validated data quality and implemented monitoring checks for {domain or 'production'} data flows.",
+        f"Collaborated with stakeholders to translate {domain or 'business'} requirements into data solutions.",
+    ]
     while len(bullets) < 4:
-        verb = random.choice(verbs)
-        tech = tools.split(",")[0] if tools else "PySpark"
-        bullets.append(f"{verb.capitalize()} data pipelines and ETL jobs using {tech} to support {domain or 'business'} reporting.")
+        bullets.append(generic[len(bullets)])
 
-    summary = f"Data Engineer with {user_info.get('years','')} years of experience working on {domain or 'data'} projects. Skilled in {tools}."
-    project_story = f"Generated project for {client or 'internal stakeholders'}: {summary}"
+    summary = f"Data professional with {user_info.get('years','several')} years of experience in {domain or 'data'} projects. Skilled in {tools or primary_tool}."
+    project_story = f"Built end-to-end data solutions{client_ctx} in the {domain or 'data'} domain: {summary}"
     return {"summary": summary, "bullets": bullets, "project_story": project_story}
 
 
