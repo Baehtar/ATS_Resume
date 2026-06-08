@@ -628,6 +628,20 @@ tab_cv, tab_jobs, tab_prep = st.tabs([
 # TAB 1: MY CV — Resume Builder + ATS Optimizer
 # ═══════════════════════════════════════════════════
 with tab_cv:
+    report = ats_analyzer.analyze_resume(st.session_state.resume, st.session_state.target_role)
+    score = report.get("score", 0)
+    st.markdown("### 🎯 ATS Optimization Score")
+    score_col, note_col = st.columns([0.3, 0.7])
+    with score_col:
+        st.metric("Current score", f"{score} / 100")
+    with note_col:
+        if score >= 75:
+            st.success("Strong ATS match — keep refining!")
+        elif score >= 50:
+            st.warning("Moderate match — add more role keywords.")
+        else:
+            st.error("Weak match — increase keywords and section completeness.")
+
     col_form, col_right = st.columns([1.1, 0.9])
 
     # ── LEFT: Form Editor ──
