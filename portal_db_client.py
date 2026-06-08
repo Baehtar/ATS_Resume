@@ -53,11 +53,7 @@ def is_configured():
 
 def _get_auth_redirect_url():
     try:
-        # Support both key names: auth_redirect_url and password_reset_url
-        redirect_url = (
-            st.secrets.get("supabase", {}).get("auth_redirect_url")
-            or st.secrets.get("supabase", {}).get("password_reset_url")
-        )
+        redirect_url = st.secrets.get("supabase", {}).get("auth_redirect_url")
         if redirect_url:
             return redirect_url.strip().strip('"').strip("'")
     except Exception:
