@@ -12,6 +12,7 @@ import ats_analyzer
 import resume_generator
 from job_db import MOCK_JOB_LISTINGS
 from prep_db import INTERVIEW_QUESTIONS
+from projects_db import get_project_names, get_project_by_name
 import portal_db_client as db_client
 
 TEMPLATE_OPTIONS = {
@@ -875,6 +876,37 @@ with tab_cv:
 
         # Projects
         with st.expander("💻 Projects", expanded=False):
+            # ── Preset project picker ─────────────────────────────────────
+            preset_names = get_project_names()
+            BLANK = "— select a preset project —"
+            selected_preset = st.selectbox(
+                "➕ Add from preset",
+                options=[BLANK] + preset_names,
+                index=0,
+                key="proj_preset_select",
+            )
+
+            if selected_preset != BLANK:
+                if st.button("Add Selected Project", key="proj_preset_add", type="primary", use_container_width=True):
+                    preset = get_project_by_name(selected_preset)
+                    proj_list_tmp = st.session_state.resume.get("projects", [])
+                    existing = [p.get("name", "") for p in proj_list_tmp]
+                    if preset["name"] not in existing:
+                        proj_list_tmp.append({
+                            "name": preset["name"],
+                            "tech": preset.get("tech", ""),
+                            "link": preset.get("link", ""),
+                            "description": preset.get("description", ""),
+                        })
+                        st.session_state.resume["projects"] = proj_list_tmp
+                        st.toast(f"Added: {preset['name'][:50]}...", icon="✅")
+                    else:
+                        st.warning("This project is already in your resume.")
+                    st.rerun()
+
+            st.markdown("---")
+
+            # ── Manual entries ────────────────────────────────────────────
             proj_list = st.session_state.resume.get("projects", [])
             for i, proj in enumerate(proj_list):
                 c1, c2 = st.columns(2)
@@ -889,12 +921,12 @@ with tab_cv:
                         "e.g. Python, SQL, Power BI",
                     )
                 proj["link"] = st.text_input("Link", value=proj.get("link",""), key=f"pl_{i}")
-                proj["description"] = st.text_area("Description", value=proj.get("description",""), key=f"pd_{i}", height=70)
+                proj["description"] = st.text_area("Description", value=proj.get("description",""), key=f"pd_{i}", height=100)
                 if st.button("🗑 Delete", key=f"delpr_{i}"):
                     proj_list.pop(i); st.rerun()
                 st.markdown("---")
 
-            if st.button("+ Add Project", use_container_width=True, key="add_proj"):
+            if st.button("+ Add Blank Project", use_container_width=True, key="add_proj"):
                 proj_list.append({"name":"","tech":"","link":"","description":""})
                 st.session_state.resume["projects"] = proj_list
                 st.rerun()
