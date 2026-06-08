@@ -172,6 +172,98 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+def render_sidebar_toggle():
+    """Inject an always-visible floating button that expands/collapses the sidebar.
+
+    This is version-proof: it tries to click Streamlit's native control under any
+    known test-id, and if that fails it directly forces the sidebar <section>
+    visible. The button is injected into the parent document so it stays fixed
+    on screen even though components run inside an iframe.
+    """
+    st.components.v1.html(
+        """
+        <script>
+        (function() {
+            const doc = window.parent.document;
+            if (doc.getElementById("cf-sidebar-toggle")) { return; }
+
+            const btn = doc.createElement("button");
+            btn.id = "cf-sidebar-toggle";
+            btn.innerHTML = "☰";
+            btn.title = "Show / hide menu";
+            btn.style.cssText = [
+                "position:fixed", "top:12px", "left:12px", "z-index:1000000",
+                "width:40px", "height:40px", "border-radius:8px", "border:none",
+                "background:#3b82f6", "color:#fff", "font-size:18px",
+                "cursor:pointer", "box-shadow:0 2px 8px rgba(0,0,0,0.25)"
+            ].join(";");
+
+            function findSidebar() {
+                return doc.querySelector('section[data-testid="stSidebar"]');
+            }
+
+            function expandViaControl() {
+                const expandSelectors = [
+                    '[data-testid="stSidebarCollapsedControl"] button',
+                    '[data-testid="stSidebarCollapsedControl"]',
+                    '[data-testid="collapsedControl"] button',
+                    '[data-testid="collapsedControl"]'
+                ];
+                for (const sel of expandSelectors) {
+                    const el = doc.querySelector(sel);
+                    if (el) { el.click(); return true; }
+                }
+                return false;
+            }
+
+            function collapseViaControl() {
+                const collapseSelectors = [
+                    '[data-testid="stSidebarCollapseButton"] button',
+                    '[data-testid="stSidebarCollapseButton"]',
+                    'section[data-testid="stSidebar"] button[kind="header"]'
+                ];
+                for (const sel of collapseSelectors) {
+                    const el = doc.querySelector(sel);
+                    if (el) { el.click(); return true; }
+                }
+                return false;
+            }
+
+            function forceShow() {
+                const sb = findSidebar();
+                if (sb) {
+                    sb.style.removeProperty("display");
+                    sb.style.visibility = "visible";
+                    sb.style.transform = "none";
+                    sb.style.marginLeft = "0";
+                    sb.setAttribute("aria-expanded", "true");
+                }
+            }
+
+            btn.onclick = function() {
+                const sb = findSidebar();
+                // Determine current state: collapsed if width is ~0 or transformed off-screen
+                let collapsed = true;
+                if (sb) {
+                    const rect = sb.getBoundingClientRect();
+                    collapsed = rect.width < 50 || rect.left < -50;
+                }
+                if (collapsed) {
+                    if (!expandViaControl()) { forceShow(); }
+                } else {
+                    collapseViaControl();
+                }
+            };
+
+            doc.body.appendChild(btn);
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
 # ─────────────────────────────────────────────────
 # 2. SESSION STATE & AUTHENTICATION
 # ─────────────────────────────────────────────────
@@ -629,6 +721,7 @@ if role == "admin":
 # ─────────────────────────────────────────────────
 # 3. SIDEBAR — BRANDING & GLOBAL CONTROLS
 # ─────────────────────────────────────────────────
+render_sidebar_toggle()
 with st.sidebar:
     st.markdown("## 🚀 Console Flare")
     st.caption("Your launchpad to data science careers")
