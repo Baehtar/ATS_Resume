@@ -36,8 +36,9 @@ def parse_resume_date(value):
 
 
 def format_resume_date(value):
+    """Return a human-readable 'Mon YYYY' string for display on the resume."""
     if isinstance(value, date):
-        return value.isoformat()
+        return value.strftime("%b %Y")
     return value or ""
 
 
@@ -193,32 +194,109 @@ def clear_recovery_query_params():
         pass
 
 def bridge_recovery_hash_to_query_params():
+    """
+    Handles both Supabase auth link formats:
+
+    1. Implicit flow (older / explicit setting):
+       The link contains #access_token=...&type=recovery in the hash.
+       We extract and move them to query params so Streamlit can read them.
+
+    2. PKCE flow (Supabase default since v2):
+       The link contains ?code=... as a query param.
+       We load the Supabase JS SDK in the browser, call exchangeCodeForSession(),
+       which resolves the PKCE verifier from localStorage and returns a real session.
+       We then pass access_token + refresh_token back as query params.
+
+    Without this bridge Streamlit (Python) never sees the credentials because
+    both formats arrive as client-side URL data that Python cannot read directly.
+    """
+    supabase_url = ""
+    supabase_anon_key = ""
+    try:
+        supabase_url = st.secrets.get("supabase", {}).get("url", "").strip().strip('"').strip("'")
+        supabase_anon_key = st.secrets.get("supabase", {}).get("key", "").strip().strip('"').strip("'")
+    except Exception:
+        pass
+
     st.components.v1.html(
-        """
+        f"""
         <script>
-        (function() {
+        (function() {{
+            const currentUrl = new URL(window.parent.location.href);
             const hash = window.parent.location.hash;
-            if (hash && hash.length > 1) {
+
+            // ── Case 1: Implicit flow — tokens in the hash fragment ──────
+            if (hash && hash.length > 1) {{
                 const params = new URLSearchParams(hash.slice(1));
                 const type = params.get("type");
                 const accessToken = params.get("access_token");
                 const refreshToken = params.get("refresh_token");
-                if (type === "recovery") {
+
+                if (type === "recovery" && accessToken) {{
                     const newUrl = new URL(window.parent.location.href);
                     newUrl.hash = "";
-                    if (accessToken) newUrl.searchParams.set("access_token", accessToken);
+                    newUrl.searchParams.set("access_token", accessToken);
                     if (refreshToken) newUrl.searchParams.set("refresh_token", refreshToken);
-                    if (type) newUrl.searchParams.set("type", type);
+                    newUrl.searchParams.set("type", "recovery");
                     newUrl.searchParams.set("reset", "1");
                     window.parent.location.replace(newUrl.toString());
-                } else if (type === "signup") {
+                    return;
+                }}
+                if (type === "signup") {{
                     const newUrl = new URL(window.parent.location.href);
                     newUrl.hash = "";
                     newUrl.searchParams.set("verified", "1");
                     window.parent.location.replace(newUrl.toString());
-                }
-            }
-        })();
+                    return;
+                }}
+            }}
+
+            // ── Case 2: PKCE flow — code in the query string ─────────────
+            // Only act if ?code= is present but we don't have tokens yet.
+            const code = currentUrl.searchParams.get("code");
+            const alreadyHasTokens = currentUrl.searchParams.get("access_token");
+            if (code && !alreadyHasTokens) {{
+                const SUPABASE_URL = "{supabase_url}";
+                const SUPABASE_ANON_KEY = "{supabase_anon_key}";
+                if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+
+                // Load the Supabase JS SDK from CDN, then exchange the code.
+                const script = document.createElement("script");
+                script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js";
+                script.onload = async function() {{
+                    try {{
+                        const {{ createClient }} = window.supabase;
+                        const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                        const {{ data, error }} = await client.auth.exchangeCodeForSession(code);
+                        if (error || !data || !data.session) {{
+                            // Exchange failed — surface reset=1 so user sees the form
+                            // and can request a new link
+                            const newUrl = new URL(window.parent.location.href);
+                            newUrl.searchParams.delete("code");
+                            newUrl.searchParams.set("reset", "1");
+                            newUrl.searchParams.set("code_exchange_failed", "1");
+                            window.parent.location.replace(newUrl.toString());
+                            return;
+                        }}
+                        const session = data.session;
+                        const newUrl = new URL(window.parent.location.href);
+                        newUrl.searchParams.delete("code");
+                        newUrl.searchParams.set("access_token", session.access_token);
+                        newUrl.searchParams.set("refresh_token", session.refresh_token);
+                        newUrl.searchParams.set("type", "recovery");
+                        newUrl.searchParams.set("reset", "1");
+                        window.parent.location.replace(newUrl.toString());
+                    }} catch(e) {{
+                        const newUrl = new URL(window.parent.location.href);
+                        newUrl.searchParams.delete("code");
+                        newUrl.searchParams.set("reset", "1");
+                        newUrl.searchParams.set("code_exchange_failed", "1");
+                        window.parent.location.replace(newUrl.toString());
+                    }}
+                }};
+                document.head.appendChild(script);
+            }}
+        }})();
         </script>
         """,
         height=0,
@@ -232,6 +310,7 @@ if st.session_state.user is None:
     recovery_token_hash = get_query_param("token_hash")
     recovery_access_token = get_query_param("access_token")
     recovery_refresh_token = get_query_param("refresh_token")
+    code_exchange_failed = get_query_param("code_exchange_failed") == "1"
     is_recovery = (
         get_query_param("reset") == "1"
         or get_query_param("type") == "recovery"
@@ -248,6 +327,26 @@ if st.session_state.user is None:
     with col_b:
         if is_recovery:
             st.markdown("#### Set New Password")
+
+            if code_exchange_failed:
+                st.error(
+                    "⚠️ Your password reset link has expired or already been used. "
+                    "Please request a new one below."
+                )
+                if st.button("Request New Reset Email", type="primary", use_container_width=True):
+                    clear_recovery_query_params()
+                    st.rerun()
+                st.stop()
+
+            if not (recovery_access_token and recovery_refresh_token) and not recovery_token_hash and not recovery_code:
+                # Still waiting for the bridge JS to redirect with tokens (first render after clicking link)
+                st.info("⏳ Verifying your reset link, please wait a moment...")
+                st.caption("If this message persists, your link may have expired. Use the button below to request a new one.")
+                if st.button("Request New Reset Email", use_container_width=True):
+                    clear_recovery_query_params()
+                    st.rerun()
+                st.stop()
+
             st.caption("Enter a new password for your Console Flare account.")
             new_password = st.text_input("New Password", type="password", key="reset_new_password")
             confirm_password = st.text_input("Confirm New Password", type="password", key="reset_confirm_password")
@@ -720,7 +819,8 @@ with tab_cv:
                 ai_current_role = st.text_input("Current Role:", value="", key="ai_current_role")
                 ai_domain = st.text_input("Industry / Domain:", value="", key="ai_domain",
                                           placeholder="e.g. Retail, Healthcare, Banking")
-                ai_years = st.text_input("Years of Experience:", value="", key="ai_years")
+                ai_client = st.text_input("Client Name (optional):", value="", key="ai_client",
+                                          placeholder="Optional client or project name")
             with ai_col2:
                 ai_daily = st.text_area("Daily Activities (short):", value="", key="ai_daily", height=80,
                                         placeholder="What you do day-to-day (brief)")
@@ -732,8 +832,49 @@ with tab_cv:
                     "e.g. PySpark, Databricks, Azure Data Factory",
                 )
                 st.session_state["kw_ai_tools_value"] = ai_tools
-                ai_client = st.text_input("Client Name (optional):", value="", key="ai_client",
-                                          placeholder="Optional client or project name")
+
+            # Duration row — replaces the old free-text "Years of Experience" field
+            st.markdown("**Duration**")
+            ai_dur1, ai_dur2, ai_dur3 = st.columns([1, 1, 1])
+            with ai_dur1:
+                ai_start_date = st.date_input(
+                    "Start Date",
+                    value=None,
+                    key="ai_start_date",
+                    help="Month and year you started this role",
+                )
+            with ai_dur2:
+                ai_is_current = st.checkbox("Currently working here", key="ai_is_current")
+            with ai_dur3:
+                if ai_is_current:
+                    ai_end_date = None
+                    st.markdown("<div style='padding-top:28px; color:#10b981; font-weight:600;'>Present</div>", unsafe_allow_html=True)
+                else:
+                    ai_end_date = st.date_input(
+                        "End Date",
+                        value=None,
+                        key="ai_end_date",
+                        help="Month and year you left this role",
+                    )
+
+            # Compute a human-readable years-of-experience string for the AI prompt
+            def _duration_label(s, e, is_current):
+                if not s:
+                    return ""
+                end = date.today() if is_current else e
+                if not end:
+                    return ""
+                months = (end.year - s.year) * 12 + (end.month - s.month)
+                yrs = months // 12
+                mos = months % 12
+                parts = []
+                if yrs:
+                    parts.append(f"{yrs} yr{'s' if yrs > 1 else ''}")
+                if mos:
+                    parts.append(f"{mos} mo{'s' if mos > 1 else ''}")
+                return " ".join(parts) if parts else "< 1 month"
+
+            ai_years_label = _duration_label(ai_start_date, ai_end_date, ai_is_current)
 
             if st.button("Generate Experience", key="gen_ai_exp"):
                 entry_info = {
@@ -743,8 +884,8 @@ with tab_cv:
                     "client": ai_client,
                     "details": ai_daily,
                     "tools": ai_tools,
-                    "years": ai_years or "",
-                    "target_role": st.session_state.target_role  # Fix: was hardcoded to "data_engineer"
+                    "years": ai_years_label,
+                    "target_role": st.session_state.target_role,
                 }
                 with st.spinner("Generating entry bullets via AI..."):
                     try:
@@ -755,12 +896,14 @@ with tab_cv:
 
                 if gen:
                     bullets = gen.get("bullets") or []
-                    exp_entry = {"company": entry_info["company"],
-                                 "role": entry_info.get("role", ""),
-                                 "location": "",
-                                 "startDate": "",
-                                 "endDate": "",
-                                 "bullets": bullets}
+                    exp_entry = {
+                        "company": entry_info["company"],
+                        "role": entry_info.get("role", ""),
+                        "location": "",
+                        "startDate": format_resume_date(ai_start_date),
+                        "endDate": "Present" if ai_is_current else format_resume_date(ai_end_date),
+                        "bullets": bullets,
+                    }
                     st.session_state.resume["experience"] = [exp_entry]
                     if gen.get("api_used"):
                         st.success("Entry bullets generated by OpenAI.")
@@ -776,33 +919,38 @@ with tab_cv:
                     exp["company"] = st.text_input("Company", value=exp.get("company",""), key=f"ec_{i}")
                 with c2:
                     exp["location"] = st.text_input("Location", value=exp.get("location",""), key=f"el_{i}")
-                c3, c4 = st.columns(2)
-                with c3:
-                    exp["role"] = st.text_input("Role/Title", value=exp.get("role",""), key=f"er_{i}")
-                with c4:
-                    d1, d2 = st.columns(2)
-                    with d1:
-                        start_value = st.date_input(
-                            "Start",
-                            value=parse_resume_date(exp.get("startDate")),
-                            key=f"date_exp_start_{i}",
+
+                exp["role"] = st.text_input("Role / Title", value=exp.get("role",""), key=f"er_{i}")
+
+                # Duration row — full-width, not squeezed inside a nested column
+                st.markdown("**Duration**")
+                d1, d2, d3 = st.columns([1, 1, 1])
+                with d1:
+                    start_value = st.date_input(
+                        "Start Date",
+                        value=parse_resume_date(exp.get("startDate")),
+                        key=f"date_exp_start_{i}",
+                        help="Month and year you started",
+                    )
+                    exp["startDate"] = format_resume_date(start_value)
+                with d2:
+                    is_current = st.checkbox(
+                        "Currently working here",
+                        value=exp.get("endDate", "").strip().lower() == "present",
+                        key=f"date_exp_present_{i}",
+                    )
+                with d3:
+                    if is_current:
+                        exp["endDate"] = "Present"
+                        st.markdown("<div style='padding-top:28px; color:#10b981; font-weight:600;'>Present</div>", unsafe_allow_html=True)
+                    else:
+                        end_value = st.date_input(
+                            "End Date",
+                            value=parse_resume_date(exp.get("endDate")),
+                            key=f"date_exp_end_{i}",
+                            help="Month and year you left",
                         )
-                        exp["startDate"] = format_resume_date(start_value)
-                    with d2:
-                        is_current = st.checkbox(
-                            "Present",
-                            value=exp.get("endDate", "").strip().lower() == "present",
-                            key=f"date_exp_present_{i}",
-                        )
-                        if is_current:
-                            exp["endDate"] = "Present"
-                        else:
-                            end_value = st.date_input(
-                                "End",
-                                value=parse_resume_date(exp.get("endDate")),
-                                key=f"date_exp_end_{i}",
-                            )
-                            exp["endDate"] = format_resume_date(end_value)
+                        exp["endDate"] = format_resume_date(end_value)
                 st.markdown("*Bullet points (use action verbs + metrics)*")
                 bullets = exp.get("bullets", [])
                 for bi, b in enumerate(bullets):
@@ -870,6 +1018,46 @@ with tab_cv:
 
         # Projects
         with st.expander("💻 Projects", expanded=False):
+            # ── Preset project templates ──────────────────────────────────
+            PRESET_PROJECTS = {
+                "— select a preset —": None,
+                "Scalable Cloud Data Lakehouse Pipeline (Medallion Architecture)": {
+                    "name": "Scalable Cloud Data Lakehouse Pipeline with Medallion Architecture for Retail",
+                    "tech": "Azure Data Factory, Azure SQL, ADLS Gen2, Databricks, PySpark, Delta Lake",
+                    "link": "",
+                    "description": (
+                        "Built an end-to-end ETL/ELT pipeline using ADF, Azure SQL, and ADLS to ingest and manage client data. "
+                        "Implemented incremental loading using Lookups, dynamic parameters, and stored procedures for automated date tracking decisions. "
+                        "Performed Bronze-to-Silver transformations in Databricks (PySpark) including schema enforcement, null handling, and deduplication. "
+                        "Designed Gold-layer Dim & Fact tables using Delta Lake with SCD Type-1 merge logic for accurate record updates. "
+                        "Delivered a scalable, production-ready pipeline supporting reporting and analytics."
+                    ),
+                },
+            }
+            preset_names = list(PRESET_PROJECTS.keys())
+            selected_preset = st.selectbox(
+                "➕ Add from preset",
+                options=preset_names,
+                index=0,
+                key="proj_preset_select",
+            )
+            if selected_preset != "— select a preset —":
+                if st.button("Add Preset Project", key="proj_preset_add"):
+                    preset = PRESET_PROJECTS[selected_preset]
+                    proj_list = st.session_state.resume.get("projects", [])
+                    # Avoid duplicating the same preset
+                    existing_names = [p.get("name", "") for p in proj_list]
+                    if preset["name"] not in existing_names:
+                        proj_list.append(dict(preset))
+                        st.session_state.resume["projects"] = proj_list
+                        st.toast("Preset project added!", icon="✅")
+                    else:
+                        st.warning("This project is already in your resume.")
+                    st.rerun()
+
+            st.markdown("---")
+
+            # ── Manual entries ────────────────────────────────────────────
             proj_list = st.session_state.resume.get("projects", [])
             for i, proj in enumerate(proj_list):
                 c1, c2 = st.columns(2)
@@ -884,12 +1072,12 @@ with tab_cv:
                         "e.g. Python, SQL, Power BI",
                     )
                 proj["link"] = st.text_input("Link", value=proj.get("link",""), key=f"pl_{i}")
-                proj["description"] = st.text_area("Description", value=proj.get("description",""), key=f"pd_{i}", height=70)
+                proj["description"] = st.text_area("Description", value=proj.get("description",""), key=f"pd_{i}", height=100)
                 if st.button("🗑 Delete", key=f"delpr_{i}"):
                     proj_list.pop(i); st.rerun()
                 st.markdown("---")
 
-            if st.button("+ Add Project", use_container_width=True, key="add_proj"):
+            if st.button("+ Add Blank Project", use_container_width=True, key="add_proj"):
                 proj_list.append({"name":"","tech":"","link":"","description":""})
                 st.session_state.resume["projects"] = proj_list
                 st.rerun()
@@ -918,6 +1106,47 @@ with tab_cv:
 
         # Certifications
         with st.expander("📜 Certifications", expanded=False):
+            # ── Preset certifications ─────────────────────────────────────
+            PRESET_CERTS = {
+                "— select a preset —": None,
+                "Data Science With Big Data Engineering + GenAI": {
+                    "name": "Data Science With Big Data Engineering + GenAI",
+                    "issuer": "Console Flare",
+                    "date": "",
+                },
+                "Data Analytics with Power BI": {
+                    "name": "Data Analytics with Power BI",
+                    "issuer": "Console Flare",
+                    "date": "",
+                },
+                "Microsoft Azure Data Fundamentals DP-900": {
+                    "name": "Microsoft Azure Data Fundamentals DP-900",
+                    "issuer": "Microsoft",
+                    "date": "",
+                },
+            }
+            selected_cert_preset = st.selectbox(
+                "➕ Add from preset",
+                options=list(PRESET_CERTS.keys()),
+                index=0,
+                key="cert_preset_select",
+            )
+            if selected_cert_preset != "— select a preset —":
+                if st.button("Add Preset Certification", key="cert_preset_add"):
+                    preset_cert = PRESET_CERTS[selected_cert_preset]
+                    cert_list_tmp = st.session_state.resume.get("certifications", [])
+                    existing_cert_names = [c.get("name", "") for c in cert_list_tmp]
+                    if preset_cert["name"] not in existing_cert_names:
+                        cert_list_tmp.append(dict(preset_cert))
+                        st.session_state.resume["certifications"] = cert_list_tmp
+                        st.toast("Preset certification added!", icon="✅")
+                    else:
+                        st.warning("This certification is already in your resume.")
+                    st.rerun()
+
+            st.markdown("---")
+
+            # ── Manual entries ────────────────────────────────────────────
             cert_list = st.session_state.resume.get("certifications", [])
             for i, c in enumerate(cert_list):
                 c["name"] = st.text_input("Title", value=c.get("name",""), key=f"cn_{i}")
@@ -935,8 +1164,7 @@ with tab_cv:
                     cert_list.pop(i); st.rerun()
                 st.markdown("---")
 
-            # Fix: button was outside the expander block (in wrong column)
-            if st.button("+ Add Certification", use_container_width=True, key="add_cert"):
+            if st.button("+ Add Blank Certification", use_container_width=True, key="add_cert"):
                 cert_list.append({"name":"","issuer":"","date":""})
                 st.session_state.resume["certifications"] = cert_list
                 st.rerun()
