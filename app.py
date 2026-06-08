@@ -103,8 +103,10 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Hide Streamlit toolbar */
-    header {visibility: hidden;}
+    /* Hide Streamlit toolbar items but keep the sidebar toggle visible */
+    header[data-testid="stHeader"] { visibility: hidden; }
+    /* Re-show the sidebar collapse/expand button */
+    [data-testid="collapsedControl"] { visibility: visible !important; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 
