@@ -68,6 +68,11 @@ def get_keyword_options(target_role):
     return sorted(set(keywords), key=str.lower)
 
 
+def get_skill_options(target_role):
+    roles = ats_analyzer.load_role_keywords()
+    return sorted(set(roles.get(target_role, {}).get("skills", [])), key=str.lower)
+
+
 def keyword_textbox_with_dropdown(label, value, key_prefix, options, placeholder=""):
     current = split_keywords(value)
     selected = st.multiselect(
@@ -891,13 +896,14 @@ with tab_cv:
         # Skills
         with st.expander("🛠 Skills", expanded=False):
             skills_list = st.session_state.resume.get("skills", [])
+            skill_options = get_skill_options(st.session_state.target_role)
             for i, s in enumerate(skills_list):
                 s["category"] = st.text_input("Group Name", value=s.get("category",""), key=f"sc_{i}")
                 s["list"] = keyword_textbox_with_dropdown(
                     "Skills",
                     s.get("list", ""),
                     f"kw_skills_{i}",
-                    keyword_options,
+                    skill_options,
                     "Add custom skills separated by commas",
                 )
                 if st.button("🗑 Delete", key=f"delsk_{i}"):
